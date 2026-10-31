@@ -80,7 +80,7 @@ function intro() {
   tl.to('#loader', { yPercent: -100, duration: 1.1, ease: 'expo.inOut' })
     .set('#loader', { display: 'none' })
     .to(heroSplits.flatMap((s) => s.chars), { yPercent: 0, duration: 1.2, ease: 'expo.out', stagger: 0.035 }, '-=0.55')
-    .from('.hero__meta, .hero__bottom, .header', { opacity: 0, y: 20, duration: 1, stagger: 0.1, ease: 'power3.out' }, '-=1');
+    .from('.hero__meta, .hero__bottom, .header', { opacity: 0, y: 20, duration: 1, stagger: 0.1, ease: 'power3.out', clearProps: 'transform,opacity' }, '-=1');
   if (gl) tl.fromTo([gl.A.uniforms.uExplode, gl.B.uniforms.uExplode], { value: 2.5 }, { value: 0, duration: 2.4, ease: 'expo.out' }, 0.5);
 }
 
@@ -104,6 +104,48 @@ if (!isTouch) {
     const t = e.target.closest('[data-cursor]');
     cur.classList.toggle('is-hover', !!t);
     label.textContent = t ? t.dataset.cursor : '';
+  });
+}
+
+/* ---------------- Pill navigation ---------------- */
+{
+  const nav = $('#pillNav');
+  const header = $('.header');
+  const items = $$('.pill__item', nav);
+  const hover = $('.pill__hover', nav);
+  const active = $('.pill__active', nav);
+  // slide a highlight pill behind an item
+  const place = (el, item) => {
+    if (!item) return;
+    el.style.width = item.offsetWidth + 'px';
+    el.style.transform = `translateX(${item.offsetLeft + (item.closest('.pill__group') ? item.closest('.pill__group').offsetLeft : 0)}px)`;
+  };
+  items.forEach((it) => it.addEventListener('pointerenter', () => { nav.classList.add('is-hovering'); place(hover, it); }));
+  nav.addEventListener('pointerleave', () => nav.classList.remove('is-hovering'));
+  // active item follows the section in view
+  let current = null;
+  const setActive = (id) => {
+    const it = items.find((x) => x.dataset.section === id);
+    if (!it || it === current) return;
+    items.forEach((x) => x.classList.toggle('is-active', x === it));
+    current = it;
+    place(active, it);
+  };
+  ['top', 'about', 'work', 'projects', 'toolkit', 'contact'].forEach((id) => {
+    const sec = document.getElementById(id);
+    if (sec) ScrollTrigger.create({ trigger: sec, start: 'top 45%', end: 'bottom 45%', onToggle: (self) => self.isActive && setActive(id) });
+  });
+  setActive('top');
+  addEventListener('resize', () => current && place(active, current));
+  document.fonts && document.fonts.ready.then(() => current && place(active, current));
+  // the whole header slides away while scrolling down and comes back on scroll up
+  ScrollTrigger.create({
+    start: 0, end: 'max',
+    onUpdate(self) {
+      const y = self.scroll();
+      const hide = y > 120 && self.direction === 1;
+      if (hide !== header.classList.contains('is-hidden') && (hide || self.direction === -1 || y <= 120)) header.classList.toggle('is-hidden', hide);
+    },
   });
 }
 

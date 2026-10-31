@@ -37,11 +37,24 @@
   <!-- ===== Header ===== -->
   <header class="header">
     <a href="#top" class="logo display" data-cursor="Top">PU<span>.</span></a>
-    <nav class="nav mono">
-      <a href="#about" data-cursor="Go">About</a>
-      <a href="#work" data-cursor="Go">Experience</a>
-      <a href="#projects" data-cursor="Go">Projects</a>
-      <a href="#contact" data-cursor="Go">Contact</a>
+    <nav class="pill" id="pillNav" aria-label="Main">
+      <span class="pill__ring" aria-hidden="true"><i></i></span>
+      <span class="pill__hover" aria-hidden="true"></span>
+      <span class="pill__active" aria-hidden="true"></span>
+      <a class="pill__item" href="#top" data-section="top"><svg class="pill__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></a>
+      <a class="pill__item" href="#about" data-section="about"><svg class="pill__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>About</span></a>
+      <div class="pill__group">
+        <a class="pill__item" href="#work" data-section="work"><svg class="pill__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg><span>Experience</span><svg class="pill__chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
+        <div class="pill__drop" role="menu">
+        <a class="pill__drop-item" href="#xp-drdo"><svg class="" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span>Stress Engineer · DRDO</span></a>
+        <a class="pill__drop-item" href="#xp-kara"><svg class="" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 8 2a6 6 0 0 0 3.6-1.2 1 1 0 0 1 1.4.8v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a8 8 0 0 0-4 1"/></svg><span>Simulation Engineer · KA-RaceIng</span></a>
+        <a class="pill__drop-item" href="#xp-kit"><svg class="" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.5L4.6 18.6A2 2 0 0 0 6.3 21.6h11.4a2 2 0 0 0 1.7-3L14 9.5V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg><span>Research Assistant · KIT</span></a>
+        <a class="pill__drop-item" href="#xp-thesis"><svg class="" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 10.9a1 1 0 0 0 0-1.8L12.8 5.2a2 2 0 0 0-1.7 0L2.6 9.1a1 1 0 0 0 0 1.8l8.6 3.9a2 2 0 0 0 1.7 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg><span>Master Thesis · KIT</span></a>
+        </div>
+      </div>
+      <a class="pill__item" href="#projects" data-section="projects"><svg class="pill__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg><span>Projects</span></a>
+      <a class="pill__item" href="#toolkit" data-section="toolkit"><svg class="pill__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/></svg><span>Toolkit</span></a>
+      <a class="pill__item" href="#contact" data-section="contact"><svg class="pill__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 7-9 5.7a2 2 0 0 1-2 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg><span>Contact</span></a>
     </nav>
     <div class="header__meta mono"><span class="pulse"></span><span id="clock">--:--</span> KA, DE</div>
   </header>
@@ -96,7 +109,7 @@
     <section class="work" id="work">
       <div class="section-label mono"><span>(03)</span><span>Experience</span></div>
 
-      <article class="chapter" data-key="ch1">
+      <article class="chapter" data-key="ch1" id="xp-drdo">
         <div class="chapter__inner">
           <div class="chapter__index display">01</div>
           <div class="chapter__head mono"><span>Dec 2021 — Aug 2023</span><span>Bangalore, IN</span></div>
@@ -112,7 +125,7 @@
         </div>
       </article>
 
-      <article class="chapter" data-key="ch2">
+      <article class="chapter" data-key="ch2" id="xp-kara">
         <div class="chapter__inner">
           <div class="chapter__index display">02</div>
           <div class="chapter__head mono"><span>Oct 2024 — Oct 2025</span><span>Karlsruhe, DE</span></div>
@@ -128,7 +141,7 @@
         </div>
       </article>
 
-      <article class="chapter" data-key="ch3">
+      <article class="chapter" data-key="ch3" id="xp-kit">
         <div class="chapter__inner">
           <div class="chapter__index display">03</div>
           <div class="chapter__head mono"><span>Aug 2025 — Now</span><span>KIT, Karlsruhe</span></div>
@@ -144,7 +157,7 @@
         </div>
       </article>
 
-      <article class="chapter" data-key="ch4">
+      <article class="chapter" data-key="ch4" id="xp-thesis">
         <div class="chapter__inner">
           <div class="chapter__index display">04</div>
           <div class="chapter__head mono"><span>Jun — Dec 2026</span><span>KIT, IAM-ZM</span></div>
@@ -181,7 +194,7 @@
     </section>
 
     <!-- ===== Toolkit ===== -->
-    <section class="toolkit">
+    <section class="toolkit" id="toolkit">
       <div class="section-label mono"><span>(05)</span><span>Toolkit</span></div>
       <div class="toolkit__grid">
         <div class="tool-col"><h4 class="mono">Pre / Solve / Post</h4><ul class="display"><li>HyperMesh</li><li>MSC NASTRAN</li><li>Abaqus</li><li>Ansys Mechanical</li><li>OptiStruct</li><li>HyperView · Patran</li></ul></div>
