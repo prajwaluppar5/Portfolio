@@ -34,52 +34,135 @@ export function specimen() {
   return g;
 }
 
-// 2. Aerospace — a stylised twin-tail delta-wing jet (not a model of any real aircraft)
-export function jet() {
-  const parts = [];
-  const fus = new THREE.CylinderGeometry(0.16, 0.2, 2.2, 32, 8);
-  fus.rotateX(Math.PI / 2);
-  parts.push(fus);
-  const nose = new THREE.ConeGeometry(0.16, 0.7, 32, 4);
-  nose.rotateX(Math.PI / 2);
-  nose.translate(0, 0, 1.45);
-  parts.push(nose);
-  const canopy = new THREE.SphereGeometry(0.13, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-  canopy.scale(1, 0.8, 2.6);
-  canopy.translate(0, 0.14, 0.75);
-  parts.push(canopy);
-
-  const wingShape = new THREE.Shape();
-  wingShape.moveTo(0, 0.55);
-  wingShape.lineTo(1.25, -0.45);
-  wingShape.lineTo(1.2, -0.75);
-  wingShape.lineTo(0, -0.8);
-  wingShape.lineTo(0, 0.55);
-  const wingR = new THREE.ExtrudeGeometry(wingShape, { depth: 0.04, bevelEnabled: false });
-  wingR.rotateX(Math.PI / 2);
-  wingR.translate(0.12, 0, 0);
-  const wingL = wingR.clone();
-  wingL.scale(-1, 1, 1);
-  parts.push(wingR, wingL);
-
-  const finShape = new THREE.Shape();
-  finShape.moveTo(0, 0);
-  finShape.lineTo(0.35, 0.55);
-  finShape.lineTo(0.55, 0.55);
-  finShape.lineTo(0.6, 0);
-  finShape.lineTo(0, 0);
-  for (const s of [1, -1]) {
-    const fin = new THREE.ExtrudeGeometry(finShape, { depth: 0.03, bevelEnabled: false });
-    fin.rotateY(Math.PI / 2);
-    fin.rotateZ(s * 0.35);
-    fin.translate(s * 0.18, 0.1, -0.35);
-    parts.push(fin);
+// ---- Aircraft helpers. Axes: x = span, y = up, z = length (nose at +z). ----
+// Lofted fuselage through cross-section stations. `p` > 1 sharpens the side
+// edges into chines (stealth-style); p = 1 gives an ellipse.
+function loft(stations, seg = 48) {
+  const pos = [];
+  const ring = (s) => {
+    const pts = [];
+    for (let k = 0; k < seg; k++) {
+      const t = (k / seg) * Math.PI * 2;
+      const c = Math.cos(t), sn = Math.sin(t);
+      const p = s.p || 1;
+      const top = sn > 0 ? s.ht ?? s.h : s.h;
+      pts.push([s.w * c, (s.y || 0) + top * Math.sign(sn) * Math.pow(Math.abs(sn), p), s.z]);
+    }
+    return pts;
+  };
+  const rings = stations.map(ring);
+  for (let i = 0; i < rings.length - 1; i++) {
+    const a = rings[i], b = rings[i + 1];
+    for (let k = 0; k < seg; k++) {
+      const k1 = (k + 1) % seg;
+      pos.push(...a[k], ...b[k], ...b[k1], ...a[k], ...b[k1], ...a[k1]);
+    }
   }
-  const g = merge(parts);
-  g.rotateY(-0.6);
-  g.rotateX(0.35);
-  g.scale(1.05, 1.05, 1.05);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   return g;
+}
+// Flat lifting surface from a half-planform [[x(span), z(length)], ...], mirrored.
+function planform(pts, { t = 0.025, y = 0, mirror = true, dihedral = 0 } = {}) {
+  const shape = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, z)));
+  const half = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
+  half.rotateX(Math.PI / 2); // shape y → +z, extrusion → −y
+  half.translate(0, y + t / 2, 0);
+  if (dihedral) half.rotateZ(dihedral);
+  if (!mirror) return [half];
+  const other = half.clone();
+  other.scale(-1, 1, 1);
+  return [half, other];
+}
+// Vertical fin from a side profile [[z, y], ...] placed at span x, canted outward.
+function fin(profile, { x = 0, cant = 0, t = 0.022 } = {}) {
+  const shape = new THREE.Shape(profile.map(([z, y]) => new THREE.Vector2(z, y)));
+  const g = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
+  g.translate(0, 0, -t / 2);
+  g.rotateY(-Math.PI / 2); // shape x → +z
+  if (cant) g.rotateZ(-cant * Math.sign(x || 1));
+  g.translate(x, 0, 0);
+  return g;
+}
+function cyl(r0, r1, z0, z1, x = 0, y = 0) {
+  const g = new THREE.CylinderGeometry(r1, r0, Math.abs(z1 - z0), 32, 3, true);
+  g.rotateX(Math.PI / 2);
+  g.translate(x, y, (z0 + z1) / 2);
+  return g;
+}
+function bubble(z, y, rx, ry, rz) {
+  const g = new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  g.scale(rx, ry, rz);
+  g.translate(0, y, z);
+  return g;
+}
+// aircraft are thin, so they're scaled up to spread the particles and avoid a blown-out glow
+const AIR = 1.45;
+const showcase = (g) => { g.scale(AIR, AIR, AIR); g.rotateY(-0.65); g.rotateX(0.4); return g; };
+const shown = (x, y, z) =>
+  new THREE.Vector3(x, y, z).multiplyScalar(AIR).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.65).applyAxisAngle(new THREE.Vector3(1, 0, 0), 0.4);
+
+// 2a. AMCA-inspired 5th-gen stealth fighter (published layout: ~18 m long, 11.1 m span).
+// Chined blended fuselage, diamond/trapezoidal wing, side caret intakes, twin canted
+// fins, all-moving tailplanes, twin engines.
+export function amca() {
+  const parts = [];
+  parts.push(loft([
+    { z: 1.32, w: 0.004, h: 0.003, p: 1.8 },
+    { z: 1.15, w: 0.07, h: 0.035, ht: 0.05, p: 1.8 },
+    { z: 0.9, w: 0.14, h: 0.06, ht: 0.09, p: 1.7 },
+    { z: 0.6, w: 0.22, h: 0.08, ht: 0.12, p: 1.6 },
+    { z: 0.3, w: 0.33, h: 0.09, ht: 0.12, p: 1.8 },
+    { z: -0.2, w: 0.36, h: 0.09, ht: 0.11, p: 2 },
+    { z: -0.7, w: 0.31, h: 0.08, ht: 0.09, p: 2 },
+    { z: -1.0, w: 0.25, h: 0.07, ht: 0.07, p: 1.8 },
+  ]));
+  // caret intakes: angled boxes on each side under the leading-edge extension
+  for (const s of [1, -1]) {
+    const box = new THREE.BoxGeometry(0.1, 0.12, 0.42, 3, 3, 8);
+    box.translate(s * 0.27, -0.03, 0.32);
+    box.rotateY(s * 0.08);
+    parts.push(box);
+  }
+  parts.push(bubble(0.68, 0.1, 0.085, 0.085, 0.3));
+  // diamond-shaped trapezoidal wing: ~42° LE sweep, forward-swept trailing edge
+  parts.push(...planform([[0.2, 0.42], [0.8, -0.35], [0.8, -0.56], [0.28, -0.8], [0.2, -0.78]], { t: 0.03, y: 0.0 }));
+  // all-moving horizontal tailplanes
+  parts.push(...planform([[0.22, -0.78], [0.6, -1.08], [0.6, -1.2], [0.22, -1.16]], { t: 0.02, y: -0.01, dihedral: -0.03 }));
+  // twin outward-canted vertical tails
+  for (const s of [1, -1]) parts.push(fin([[-0.5, 0], [-0.86, 0.44], [-1.02, 0.44], [-0.98, 0]], { x: s * 0.22, cant: 0.45 }));
+  // twin engine nozzles
+  for (const s of [1, -1]) parts.push(cyl(0.085, 0.075, -0.98, -1.22, s * 0.11, 0));
+  return showcase(merge(parts));
+}
+
+// 2b. Tejas-inspired light fighter (published layout: 13.2 m long, 8.2 m span).
+// Tailless compound delta, single fin, side intakes under the wing root, single engine.
+export function tejas() {
+  const parts = [];
+  parts.push(loft([
+    { z: 1.3, w: 0.004, h: 0.004 },
+    { z: 1.12, w: 0.06, h: 0.06 },
+    { z: 0.88, w: 0.11, h: 0.11 },
+    { z: 0.6, w: 0.14, h: 0.13, ht: 0.15 },
+    { z: 0.3, w: 0.16, h: 0.14, ht: 0.17 },
+    { z: -0.3, w: 0.17, h: 0.14, ht: 0.17 },
+    { z: -0.85, w: 0.15, h: 0.13, ht: 0.15 },
+    { z: -1.15, w: 0.11, h: 0.11 },
+  ], 40));
+  // side intakes beneath the wing root
+  for (const s of [1, -1]) {
+    const box = new THREE.BoxGeometry(0.09, 0.15, 0.6, 3, 3, 10);
+    box.translate(s * 0.18, -0.06, 0.12);
+    parts.push(box);
+  }
+  parts.push(bubble(0.58, 0.12, 0.08, 0.1, 0.28));
+  // compound delta: steep inner leading edge, shallower outer, straight trailing edge
+  parts.push(...planform([[0.14, 0.5], [0.42, -0.1], [0.81, -0.62], [0.81, -0.74], [0.14, -0.98]], { t: 0.025, y: -0.02 }));
+  // single tall swept fin on the spine
+  parts.push(fin([[-0.35, 0.14], [-0.92, 0.72], [-1.1, 0.72], [-1.15, 0.12]], { x: 0 }));
+  parts.push(cyl(0.1, 0.085, -1.12, -1.32));
+  return showcase(merge(parts));
 }
 
 // 3. Motorsport — open-wheel race wheel: tyre, rim, spokes, hub
@@ -178,14 +261,16 @@ export function gear() {
   return g;
 }
 
-// Each shape gets a pseudo "stress" field: hot near a load point, cool far away,
+// Each shape gets one or more load points. Each shape gets a pseudo "stress" field: hot near a load point, cool far away,
 // with a little noise so the contour looks like a real result plot.
 export const loadPoints = [
   new THREE.Vector3(0.6, 0.9, 0.4),   // specimen: point load top-right
-  new THREE.Vector3(0.25, 0, 0.2),    // jet: wing root
+  // aircraft: wing-root bending on both sides (coordinates in the showcase pose)
+  [shown(0.3, 0, -0.25), shown(-0.3, 0, -0.25)],   // AMCA
+  [shown(0.3, 0, -0.35), shown(-0.3, 0, -0.35)],   // Tejas
   new THREE.Vector3(0, 0.4, 0.1),     // wheel: spoke roots / hub
   new THREE.Vector3(1.1, 0.2, 0),     // gear: tooth in mesh
   new THREE.Vector3(0.3, 0.9, 0.2),   // molar: occlusal cusp
 ];
 
-export const shapeBuilders = [specimen, jet, wheel, gear, molar];
+export const shapeBuilders = [specimen, amca, tejas, wheel, gear, molar];

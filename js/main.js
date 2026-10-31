@@ -165,11 +165,24 @@ if (gl) {
   $$('.chapter').forEach((ch) => {
     const idx = +ch.dataset.shape;
     const right = ch.classList.contains('chapter--right');
-    const enter = () => {
-      to3D({ morph: idx, duration: 2.2 });
-      to3D({ x: isMobile() ? 0 : right ? -2.0 : 2.0, y: isMobile() ? 1.25 : 0, scale: isMobile() ? 0.7 : 0.82, rotX: 0, ringOpacity: 0.12 });
+    const alt = ch.dataset.shapeAlt ? +ch.dataset.shapeAlt : null;
+    const setModel = (tejas) => ch.querySelectorAll('[data-m]').forEach((el) => el.classList.toggle('is-on', (el.dataset.m === 't') === tejas));
+    const showAlt = (on) => {
+      to3D({ morph: on ? alt : idx, duration: 2.2 });
+      hudCase.textContent = on ? ch.dataset.caseAlt : ch.dataset.case;
+      setModel(on);
+    };
+    if (alt !== null) {
+      // halfway through the chapter the AMCA dissolves into the Tejas
+      ScrollTrigger.create({ trigger: ch, start: '50% 55%', onEnter: () => showAlt(true), onLeaveBack: () => showAlt(false) });
+    }
+    const enter = (self) => {
+      const back = self && self.direction < 0 && alt !== null;
+      to3D({ morph: back ? alt : idx, duration: 2.2 });
+      if (back) { showAlt(true); }
+      to3D({ x: isMobile() ? 0 : right ? -2.0 : 2.0, y: isMobile() ? 0.5 : 0, scale: isMobile() ? 0.75 : 0.82, rotX: 0, ringOpacity: 0.12 });
       gsap.to(U.uHeat, { value: 1, duration: 1.5 });
-      hudCase.textContent = ch.dataset.case;
+      if (!back) { hudCase.textContent = ch.dataset.case; setModel(false); }
     };
     ScrollTrigger.create({ trigger: ch, start: 'top 55%', end: 'bottom 55%', onEnter: enter, onEnterBack: enter });
 
@@ -189,7 +202,7 @@ if (gl) {
   ScrollTrigger.create({
     trigger: '.contact', start: 'top 60%',
     onEnter: () => { to3D({ morph: 0, x: isMobile() ? 0 : 2.4, y: isMobile() ? -1.6 : -0.3, scale: 0.9, ringOpacity: 0.22 }); hudCase.textContent = 'LC5 · Your problem'; },
-    onLeaveBack: () => { to3D({ morph: 4, x: -2.0, y: 0 }); hudCase.textContent = 'LC4 · Biomechanics'; },
+    onLeaveBack: () => { to3D({ morph: 5, x: isMobile() ? 0 : -2.0, y: isMobile() ? 0.5 : 0 }); hudCase.textContent = 'LC4 · Biomechanics'; },
   });
 
   // HUD fades in after the hero, progress follows the whole page

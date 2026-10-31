@@ -10,21 +10,21 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { shapeBuilders, loadPoints } from './shapes.js';
 
 const vertexShader = /* glsl */ `
-  attribute vec3 p0; attribute vec3 p1; attribute vec3 p2; attribute vec3 p3; attribute vec3 p4;
-  attribute vec4 sA; attribute float sB; attribute float aRand;
+  attribute vec3 p0; attribute vec3 p1; attribute vec3 p2; attribute vec3 p3; attribute vec3 p4; attribute vec3 p5;
+  attribute vec4 sA; attribute vec2 sB; attribute float aRand;
   uniform float uMorph, uTime, uSize, uPixelRatio, uHeat, uExplode;
   uniform vec3 uMouse; uniform float uMouseStrength;
   varying float vStress; varying float vAlpha;
 
-  vec3 pick(float i){ return i < .5 ? p0 : i < 1.5 ? p1 : i < 2.5 ? p2 : i < 3.5 ? p3 : p4; }
-  float pickS(float i){ return i < .5 ? sA.x : i < 1.5 ? sA.y : i < 2.5 ? sA.z : i < 3.5 ? sA.w : sB; }
+  vec3 pick(float i){ return i < .5 ? p0 : i < 1.5 ? p1 : i < 2.5 ? p2 : i < 3.5 ? p3 : i < 4.5 ? p4 : p5; }
+  float pickS(float i){ return i < .5 ? sA.x : i < 1.5 ? sA.y : i < 2.5 ? sA.z : i < 3.5 ? sA.w : i < 4.5 ? sB.x : sB.y; }
 
   // cheap 3D hash noise for turbulence while morphing
   vec3 hash3(float n){ return fract(sin(vec3(n, n + 1.7, n + 3.1)) * vec3(43758.5453, 22578.145, 19642.349)) - .5; }
 
   void main(){
-    float i0 = clamp(floor(uMorph), 0., 4.);
-    float i1 = min(i0 + 1., 4.);
+    float i0 = clamp(floor(uMorph), 0., 5.);
+    float i1 = min(i0 + 1., 5.);
     float f = uMorph - i0;
     // staggered per-particle transition so the shape "dissolves" instead of sliding
     float t = smoothstep(aRand * .45, aRand * .45 + .55, f);
@@ -97,11 +97,11 @@ export function createScene(canvas, { lowPower = false } = {}) {
     const mesh = new THREE.Mesh(build());
     const sampler = new MeshSurfaceSampler(mesh).build();
     const arr = new Float32Array(COUNT * 3);
-    const lp = loadPoints[si];
+    const lps = [].concat(loadPoints[si]);
     for (let i = 0; i < COUNT; i++) {
       sampler.sample(tmp);
       arr.set([tmp.x, tmp.y, tmp.z], i * 3);
-      const d = tmp.distanceTo(lp);
+      const d = Math.min(...lps.map((lp) => tmp.distanceTo(lp)));
       // concentration near the load point + a cooler gradient elsewhere + ripple noise
       let s = Math.exp(-d * d * 1.6) * 0.85 + 0.25 * (1 - Math.min(d / 2.6, 1));
       s += 0.08 * Math.sin(tmp.x * 9 + tmp.y * 7) * Math.cos(tmp.z * 8);
@@ -112,15 +112,15 @@ export function createScene(canvas, { lowPower = false } = {}) {
     mesh.geometry.dispose();
   });
   const sA = new Float32Array(COUNT * 4);
-  const sB = new Float32Array(COUNT);
+  const sB = new Float32Array(COUNT * 2);
   const rnd = new Float32Array(COUNT);
   for (let i = 0; i < COUNT; i++) {
     sA.set([stress[0][i], stress[1][i], stress[2][i], stress[3][i]], i * 4);
-    sB[i] = stress[4][i];
+    sB.set([stress[4][i], stress[5][i]], i * 2);
     rnd[i] = Math.random();
   }
   geo.setAttribute('sA', new THREE.BufferAttribute(sA, 4));
-  geo.setAttribute('sB', new THREE.BufferAttribute(sB, 1));
+  geo.setAttribute('sB', new THREE.BufferAttribute(sB, 2));
   geo.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 4);
 
