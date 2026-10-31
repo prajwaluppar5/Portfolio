@@ -356,43 +356,113 @@ function carPose(g, scale) {
   return g;
 }
 
-// 4. Research — a stylised molar: crown with four cusps and two roots
-export function molar() {
-  const crown = new THREE.SphereGeometry(0.85, 96, 64);
-  const p = crown.attributes.position;
-  const v = new THREE.Vector3();
-  const cusps = [
-    [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5], [-0.5, -0.5],
-  ];
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i);
-    // squarish crown
-    v.x *= 1.08; v.z *= 0.95; v.y *= 0.72;
-    if (v.y > 0) {
-      let bump = 0;
-      for (const [cx, cz] of cusps) {
-        const d = Math.hypot(v.x - cx * 0.85, v.z - cz * 0.8);
-        bump += 0.32 * Math.exp(-d * d * 7);
-      }
-      // central fissure
-      const fiss = 0.18 * Math.exp(-(v.x * v.x) * 30) + 0.12 * Math.exp(-(v.z * v.z) * 30);
-      v.y += bump - fiss * (v.y / 0.6);
+// 4. Research — lower molar modelled on the CT-derived thesis specimen (Prajwal's renders):
+// oval crown with five cusps around a deep central basin and fissures, a straight root
+// trunk with shallow grooves, and two roots (broad grooved mesial, narrower distal)
+// cut flat at the scan boundary. x = mesiodistal, z = buccolingual, y = up.
+function gridSurface(rings, closeEnd = false) {
+  // rings: array of closed loops (same length) → quad strips between consecutive loops
+  const pos = [];
+  const n = rings[0].length;
+  for (let i = 0; i < rings.length - 1; i++) {
+    const a = rings[i], b = rings[i + 1];
+    for (let k = 0; k < n; k++) {
+      const k1 = (k + 1) % n;
+      pos.push(...a[k], ...b[k], ...b[k1], ...a[k], ...b[k1], ...a[k1]);
     }
-    p.setXYZ(i, v.x, v.y + 0.35, v.z);
   }
-  const parts = [crown];
-  for (const s of [1, -1]) {
-    const root = new THREE.ConeGeometry(0.3, 1.35, 32, 10, true);
-    root.rotateX(Math.PI);
-    root.rotateZ(s * 0.18);
-    root.translate(s * 0.38, -0.65, 0);
-    parts.push(root);
+  if (closeEnd) {
+    // cap the last loop with a fan (flat cut root end)
+    const last = rings[rings.length - 1];
+    const c = last.reduce((s, p) => [s[0] + p[0] / n, s[1] + p[1] / n, s[2] + p[2] / n], [0, 0, 0]);
+    for (let k = 0; k < n; k++) pos.push(...c, ...last[(k + 1) % n], ...last[k]);
   }
-  const g = merge(parts);
-  g.rotateX(0.35);
-  g.rotateY(0.5);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   return g;
 }
+const MA = 0.66, MB = 0.54; // crown half-length (mesiodistal) and half-width (buccolingual)
+function crownOutline(t) {
+  // rounded-rectangle oval with lobes where the cusps sit
+  const c = Math.cos(t), s = Math.sin(t), n = 2.6;
+  const r = 1 / Math.pow(Math.pow(Math.abs(c), n) + Math.pow(Math.abs(s), n), 1 / n);
+  const lobe = 1 + 0.035 * Math.cos(4 * t + 0.5) + 0.02 * Math.cos(2 * t);
+  return [c * r * lobe * MA, s * r * lobe * MB];
+}
+const CUSPS = [ // [u, v, height]: mesiobuccal, distobuccal, distal, mesiolingual, distolingual
+  [-0.5, 0.48, 0.21], [0.32, 0.52, 0.18], [0.8, 0.08, 0.12], [-0.46, -0.48, 0.24], [0.38, -0.48, 0.2],
+];
+function occlusalHeight(u, v) {
+  let h = 0.24;
+  for (const [cu, cv, ch] of CUSPS) h += ch * Math.exp(-((u - cu) ** 2 + (v - cv) ** 2) / 0.2);
+  h -= 0.24 * Math.exp(-(u * u) / 0.28 - (v * v) / 0.1); // deep central fossa
+  h -= 0.09 * Math.exp(-(v * v) / 0.01) * (1 - u * u * 0.5); // mesiodistal fissure
+  h -= 0.07 * Math.exp(-((u + 0.08) ** 2) / 0.01) * (1 - v * v); // buccolingual fissure
+  h -= 0.05 * Math.exp(-((u - 0.58) ** 2) / 0.008) * Math.max(0, v); // distobuccal groove
+  h += 0.01 * Math.sin(u * 15 + v * 4) * Math.cos(v * 12); // scan texture
+  return h;
+}
+const CEJ = -0.15;
+export function molar() {
+  const K = 120; // samples around
+  const T = Array.from({ length: K }, (_, k) => (k / K) * Math.PI * 2);
+  const O = T.map(crownOutline);
+  const RIM = 0.95; // the wall's top ring is exactly the occlusal table's outer ring
+  const wallTop = O.map(([x, z]) => occlusalHeight((x * RIM) / MA, (z * RIM) / MB));
+  const rings = [];
+  // crown wall: from the cemento-enamel junction, bulging out, rolling over the rim
+  for (let j = 0; j <= 14; j++) {
+    const u = j / 14;
+    rings.push(T.map((t, k) => {
+      const y = CEJ + (1 - (1 - u) ** 1.3) * (wallTop[k] - CEJ);
+      // bulge out from the CEJ, then curve back in to meet the rim at RIM
+      const f = 0.86 + 0.15 * Math.sin(u * Math.PI * 0.75) + (RIM - 0.86 - 0.15 * Math.sin(Math.PI * 0.75)) * u * u;
+      const bump = 1 + 0.01 * Math.sin(t * 7 + 1.3) * Math.sin(u * Math.PI);
+      return [O[k][0] * f * bump, y, O[k][1] * f * bump];
+    }));
+  }
+  // occlusal table: from the rim to the centre of the basin
+  for (let j = 0; j <= 24; j++) {
+    const r = RIM * (1 - j / 24) + 0.001;
+    rings.push(T.map((t, k) => {
+      const x = O[k][0] * r, z = O[k][1] * r;
+      return [x, occlusalHeight(x / MA, z / MB), z];
+    }));
+  }
+  const parts = [gridSurface(rings)];
+  // roots: each starts as one half of the root trunk (together they continue the crown
+  // outline below the CEJ) and separates below the furcation into its own tapering root
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const trunkX = MA * 0.84, trunkZ = MB * 0.78;
+  for (const [side, rx1, rz1, lean, gr] of [[-1, 0.22, 0.44, -0.05, 0.3], [1, 0.2, 0.37, 0.1, 0.1]]) {
+    const rr = [];
+    for (let j = 0; j <= 20; j++) {
+      const d = j / 20, y = CEJ - d * 1.05;
+      const sep = ss(0.22, 0.55, d); // 0 = fused trunk, 1 = separate root
+      const cx = side * (trunkX / 2 + (0.36 - trunkX / 2) * sep) + lean * d * sep;
+      const rx = trunkX / 2 + (rx1 - trunkX / 2) * sep;
+      const rz = (trunkZ + (rz1 - trunkZ) * sep) * (1 - 0.18 * d);
+      const n = 2.6 - 0.6 * sep; // matches the crown outline where fused, oval when free
+      rr.push(T.map((t) => {
+        const c = Math.cos(t), sn = Math.sin(t);
+        const e = 1 / Math.pow(Math.pow(Math.abs(c), n) + Math.pow(Math.abs(sn), n), 1 / n);
+        // groove down the broad faces; the mesial root's makes it bilobed
+        const pinch = 1 - (gr * sep + 0.06) * Math.exp(-(sn * sn) / 0.05);
+        const x = cx + c * e * rx * (1 - 0.15 * d) * pinch;
+        return [x, y, sn * e * rz];
+      }));
+    }
+    parts.push(gridSurface(rr, true));
+  }
+  const g = merge(parts);
+  g.translate(0, 0.42, 0);
+  g.scale(1.3, 1.3, 1.3);
+  g.rotateY(0.55);
+  g.rotateX(0.32);
+  return g;
+}
+const molarPt = (x, y, z) =>
+  new THREE.Vector3(x, y + 0.42, z).multiplyScalar(1.3).applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.55).applyAxisAngle(new THREE.Vector3(1, 0, 0), 0.32);
 
 // 5. Optimisation — a spur gear (nod to the gearbox housing project)
 export function gear() {
@@ -439,7 +509,8 @@ export const loadPoints = [
   [carPt(0, 0.1, 1.3, 0.98), carPt(0, 0.95, -1.0, 0.98)],
   [carPt(0, 0.4, -0.42, 0.98), carPt(0, 0.22, 0.84, 0.98)],
   new THREE.Vector3(1.1, 0.2, 0),     // gear: tooth in mesh
-  new THREE.Vector3(0.3, 0.9, 0.2),   // molar: occlusal cusp
+  // molar: load on the mesiolingual and mesiobuccal cusps (as in the thesis load cases)
+  [molarPt(-0.32, 0.45, -0.28), molarPt(-0.34, 0.43, 0.27)],
 ];
 
 export const shapeBuilders = [brain, amca, tejas, fsCar, monocoque, gear, molar];

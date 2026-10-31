@@ -35,12 +35,22 @@ const vertexShader = /* glsl */ `
     // morph from shape uFrom to shape uTo by uT (any pair of shapes, same motion everywhere)
     float i0 = uFrom, i1 = uTo, f = uT;
     // staggered per-particle transition so the shape dissolves instead of sliding
-    float t = smoothstep(aRand * .45, aRand * .45 + .55, f);
+    vec3 a = pick(i0), b = pick(i1);
+    // assembly order: particles land bottom-up on the target shape (plus a little
+    // randomness), so a model visibly builds itself out of the moving nodes
+    float order = clamp((b.y + 1.4) / 2.8, 0., 1.) * .55 + aRand * .2;
+    float t = smoothstep(order, order + .25, f);
     t = t * t * (3. - 2. * t);
-    vec3 pos = mix(pick(i0), pick(i1), t);
     float mid = sin(t * 3.14159);
+    // curved flight path: swing sideways around the travel direction, with a small
+    // per-particle spread, instead of exploding into a random cloud
+    vec3 travel = b - a;
+    vec3 side = normalize(cross(travel + vec3(1e-3, 0., 0.), vec3(0., 1., 0.)) + 1e-4);
     vec3 jitter = hash3(aRand * 1000.);
-    pos += jitter * mid * 1.6;
+    vec3 pos = mix(a, b, t);
+    pos += side * mid * (0.15 + length(travel) * 0.22) * (0.6 + aRand * 0.8);
+    pos += vec3(0., mid * 0.25 * (aRand - .3), 0.);
+    pos += jitter * mid * 0.35;
     pos += normalize(pos + 1e-4) * uExplode * (0.5 + aRand);
     pos += 0.012 * vec3(sin(uTime * 1.3 + aRand * 40.), cos(uTime * 1.1 + aRand * 30.), sin(uTime * .9 + aRand * 20.));
 
@@ -57,11 +67,12 @@ const vertexShader = /* glsl */ `
     world.z += jitter.z * infl * 1.2;
 
     float s = mix(pickS(i0), pickS(i1), t);
-    vStress = clamp(s * uHeat + infl * .7 + mid * .15, 0., 1.);
+    vStress = clamp(s * uHeat + infl * .7 + mid * .12, 0., 1.);
     // small shapes would pack the same particle count into less area and blow out;
     // show only a share of the particles so every shape has a similar density
-    float dens = mix(uDens[int(i0)], uDens[int(i1)], t);
-    float keep = smoothstep(dens + .04, dens - .04, fract(aRand * 7.31));
+    // small/flat shapes would blow out: dim every particle evenly instead of hiding
+    // some, so no node ever pops in or out
+    float keep = mix(uDens[int(i0)], uDens[int(i1)], t);
     // each body owns one half of the particles; together they form one full model
     float mine = uHalf < .5 ? 1. : (uHalf < 1.5 ? 1. - aHalf : aHalf);
     vAlpha = (.55 + .45 * aRand) * uOpacity * keep * mine;
@@ -105,7 +116,8 @@ function surfaceArea(g) {
 
 export function createScene(canvas, { lowPower = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
-  const pr = Math.min(window.devicePixelRatio, lowPower ? 1.25 : 1.75);
+  // capped resolution keeps a steady 60 fps with two particle bodies + bloom
+  const pr = Math.min(window.devicePixelRatio, lowPower ? 1.2 : 1.5);
   renderer.setPixelRatio(pr);
   renderer.setClearColor(0x000000, 1);
 
@@ -273,6 +285,7 @@ export function createScene(canvas, { lowPower = false } = {}) {
     b.spin.rotation.x = s.rotX + look.y * 0.15;
     b.rig.rotation.y = s.rotY + look.x * 0.25;
   }
+  const api = { A, B, view, screenPos, resize, onFrame: null };
   let spinAngle = 0;
   function frame() {
     if (!running) return;
@@ -280,6 +293,7 @@ export function createScene(canvas, { lowPower = false } = {}) {
     spinAngle += dt * 0.12;
     time.value = clock.elapsedTime;
     if (ndc.x < 5) look.lerp(ndc, 0.04);
+    if (api.onFrame) api.onFrame(dt); // scroll choreography runs in the same frame as the render
     applyBody(A, dt);
     applyBody(B, dt);
     rings.rotation.z += dt * 0.05;
@@ -313,5 +327,5 @@ export function createScene(canvas, { lowPower = false } = {}) {
     if (running) { clock.getDelta(); requestAnimationFrame(frame); }
   });
 
-  return { A, B, view, screenPos, resize };
+  return api;
 }

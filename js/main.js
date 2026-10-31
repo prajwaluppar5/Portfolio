@@ -205,18 +205,28 @@ function pose(k, which, L) {
   const p = L[lay];
   return { shape: SHAPE[shape], x: p.x, y: p.y, scale: p.scale * f };
 }
-function update3D() {
-  if (!ranges.length) return;
-  const y = scrollY, L = layouts();
-  // find the segment: inside a hold → that keyframe; between holds → transition
+// global scroll progress P: an integer inside a section's hold, fractional between.
+// The 3D follows a damped copy of P, so it glides like a camera on rails.
+let P = 0, Ps = 0;
+function targetP() {
+  const y = scrollY;
   let i = 0;
   while (i < ranges.length - 1 && y > ranges[i].e) i++;
-  let from = i, to = i, t = 0;
   if (i > 0 && y < ranges[i].s) {
-    from = i - 1;
     const gapS = ranges[i - 1].e, gapE = ranges[i].s;
-    t = ease(Math.min(1, Math.max(0, (y - gapS) / Math.max(1, gapE - gapS))));
+    return i - 1 + Math.min(1, Math.max(0, (y - gapS) / Math.max(1, gapE - gapS)));
   }
+  return i;
+}
+function update3D(dt = 1 / 60) {
+  if (!ranges.length) return;
+  P = targetP();
+  Ps += (P - Ps) * (1 - Math.exp(-dt * 5.5));
+  if (Math.abs(P - Ps) < 1e-4) Ps = P;
+  const L = layouts();
+  const from = Math.min(KEYS.length - 1, Math.floor(Ps));
+  const to = Math.min(KEYS.length - 1, from + 1);
+  const t = ease(Ps - from);
   const kf = KEYS[from], kt = KEYS[to];
   for (const which of ['a', 'b']) {
     const st = (which === 'a' ? gl.A : gl.B).state;
@@ -227,15 +237,15 @@ function update3D() {
     st.scale = p0.scale + (p1.scale - p0.scale) * t;
   }
   gl.view.ringOpacity = (kf.rings || 0) * (1 - t) + (kt.rings || 0) * t;
-  const settled = t === 0 || t === 1;
   const k = t < 0.5 ? kf : kt;
   hudCase.textContent = k.hud;
-  // name tags only while a pair is formed
-  const show = settled && kt.labels && (t === 1 || from === to);
+  // name tags only once a pair has fully formed
+  const settledKey = Math.abs(Ps - Math.round(Ps)) < 0.02 ? KEYS[Math.round(Ps)] : null;
+  const show = settledKey && settledKey.labels;
   for (const [n, el, body] of [[0, labels.a, gl.A], [1, labels.b, gl.B]]) {
     el.classList.toggle('is-on', !!show);
     if (!show) continue;
-    if (el.textContent !== kt.labels[n]) el.textContent = kt.labels[n];
+    if (el.textContent !== settledKey.labels[n]) el.textContent = settledKey.labels[n];
     const p = gl.screenPos(body);
     el.style.transform = `translate(${p.x}px, ${p.y + (isMobile() ? 0.2 : 0.26) * innerHeight}px) translateX(-50%)`;
   }
@@ -245,7 +255,7 @@ if (gl) {
   ScrollTrigger.addEventListener('refresh', measure);
   addEventListener('resize', measure);
   measure();
-  gsap.ticker.add(update3D);
+  gl.onFrame = update3D;
 
   $$('.chapter').forEach((ch) => {
     const inner = ch.querySelector('.chapter__inner');
