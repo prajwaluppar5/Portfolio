@@ -16,7 +16,7 @@ const N = shapeBuilders.length; // 7 shapes → p0..p6, stress in sA (vec4) + sB
 const vertexShader = /* glsl */ `
   attribute vec3 p0; attribute vec3 p1; attribute vec3 p2; attribute vec3 p3;
   attribute vec3 p4; attribute vec3 p5; attribute vec3 p6;
-  attribute vec4 sA; attribute vec3 sB; attribute float aRand;
+  attribute vec4 sA; attribute vec3 sB; attribute float aRand; attribute vec3 aField;
   uniform float uFrom, uTo, uT, uTime, uSize, uPixelRatio, uHeat, uExplode, uOpacity, uHalf;
   attribute float aHalf;
   uniform float uDens[${N}];
@@ -34,27 +34,33 @@ const vertexShader = /* glsl */ `
   void main(){
     // morph from shape uFrom to shape uTo by uT (any pair of shapes, same motion everywhere)
     float i0 = uFrom, i1 = uTo, f = uT;
-    // staggered per-particle transition so the shape dissolves instead of sliding
+    // Transition (same for every pair of shapes):
+    //  1. the old model loosens and swells,
+    //  2. its nodes burst out into a dust field that fills the screen (world space,
+    //     some passing the camera), drift there,
+    //  3. and stream back in to assemble the next model, bottom-up.
     vec3 a = pick(i0), b = pick(i1);
-    // assembly order: particles land bottom-up on the target shape (plus a little
-    // randomness), so a model visibly builds itself out of the moving nodes
-    float order = clamp((b.y + 1.4) / 2.8, 0., 1.) * .55 + aRand * .2;
-    float t = smoothstep(order, order + .25, f);
-    t = t * t * (3. - 2. * t);
-    float mid = sin(t * 3.14159);
-    // curved flight path: swing sideways around the travel direction, with a small
-    // per-particle spread, instead of exploding into a random cloud
-    vec3 travel = b - a;
-    vec3 side = normalize(cross(travel + vec3(1e-3, 0., 0.), vec3(0., 1., 0.)) + 1e-4);
     vec3 jitter = hash3(aRand * 1000.);
-    vec3 pos = mix(a, b, t);
-    pos += side * mid * (0.15 + length(travel) * 0.22) * (0.6 + aRand * 0.8);
-    pos += vec3(0., mid * 0.25 * (aRand - .3), 0.);
-    pos += jitter * mid * 0.35;
+    float leave = smoothstep(aRand * .12, aRand * .12 + .3, f);                   // 0 → 1 by t ≈ .42
+    float order = clamp((b.y + 1.4) / 2.8, 0., 1.);
+    float arrive = smoothstep(.56 + order * .16 + aRand * .06, .82 + order * .16 + aRand * .06, f); // starts ≥ .56
+    float w = leave * (1. - arrive);  // 1 = in the dust field
+    vec3 shape = f < .5 ? a : b;      // swap shapes while every node is in the field
+    // loosen/swell just before leaving and just after arriving
+    float loose = sin(min(1., leave * 2.) * 3.14159 * .5) * (1. - arrive) + (1. - arrive) * step(.5, f);
+    shape *= 1. + 0.18 * loose * w;
+    shape += jitter * 0.25 * loose * w;
+    vec3 pos = shape;
     pos += normalize(pos + 1e-4) * uExplode * (0.5 + aRand);
     pos += 0.012 * vec3(sin(uTime * 1.3 + aRand * 40.), cos(uTime * 1.1 + aRand * 30.), sin(uTime * .9 + aRand * 20.));
 
     vec4 world = modelMatrix * vec4(pos, 1.);
+    // dust field position, slowly drifting
+    vec3 field = aField + vec3(sin(uTime * .15 + aRand * 30.), cos(uTime * .12 + aRand * 20.), sin(uTime * .1 + aRand * 10.)) * .35;
+    // ease along the way so nodes accelerate out and decelerate into place
+    float we = w * w * (3. - 2. * w);
+    world.xyz = mix(world.xyz, field, we);
+    float mid = we;
 
     // cursor: a wide soft zone that scatters particles outward and along the
     // cursor's motion; strength follows cursor speed, so they re-form when it stops
@@ -66,20 +72,24 @@ const vertexShader = /* glsl */ `
     world.xyz += uMouseVel * infl * (0.3 + aRand * 0.5);
     world.z += jitter.z * infl * 1.2;
 
-    float s = mix(pickS(i0), pickS(i1), t);
-    vStress = clamp(s * uHeat + infl * .7 + mid * .12, 0., 1.);
+    float s = f < .5 ? pickS(i0) : pickS(i1);
+    vStress = clamp(s * uHeat + infl * .7, 0., 1.); // nodes keep their colour in flight
     // small shapes would pack the same particle count into less area and blow out;
     // show only a share of the particles so every shape has a similar density
     // small/flat shapes would blow out: dim every particle evenly instead of hiding
     // some, so no node ever pops in or out
-    float keep = mix(uDens[int(i0)], uDens[int(i1)], t);
+    float keep = mix(f < .5 ? uDens[int(i0)] : uDens[int(i1)], .9, we);
     // each body owns one half of the particles; together they form one full model
     float mine = uHalf < .5 ? 1. : (uHalf < 1.5 ? 1. - aHalf : aHalf);
+    // in the dust field both halves overlap the whole screen: keep the field sparse
+    mine *= 1. - we * .7;
     vAlpha = (.55 + .45 * aRand) * uOpacity * keep * mine;
 
     vec4 mv = viewMatrix * world;
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = uSize * uPixelRatio * (0.6 + aRand * .8 + vStress * .6) / -mv.z;
+    // nodes passing close to the camera get big but are capped and faded
+    gl_PointSize = min(uSize * uPixelRatio * (0.6 + aRand * .8 + vStress * .6) / -mv.z, 9. * uPixelRatio);
+    vAlpha *= smoothstep(.4, 1.6, -mv.z);
   }
 `;
 
@@ -155,16 +165,22 @@ export function createScene(canvas, { lowPower = false } = {}) {
   const sB = new Float32Array(COUNT * 3);
   const rnd = new Float32Array(COUNT);
   const half = new Float32Array(COUNT);
+  const field = new Float32Array(COUNT * 3);
   for (let i = 0; i < COUNT; i++) {
     sA.set([stress[0][i], stress[1][i], stress[2][i], stress[3][i]], i * 4);
     sB.set([stress[4][i], stress[5][i], stress[6][i]], i * 3);
     rnd[i] = Math.random();
     half[i] = i % 2;
+    // dust-field slot inside the camera frustum (camera at z = 7.2, fov 35°)
+    const z = -6 + Math.random() * 11.5;
+    const hh = Math.tan((17.5 * Math.PI) / 180) * (7.2 - z) * 1.05;
+    field.set([(Math.random() * 2 - 1) * hh * 1.9, (Math.random() * 2 - 1) * hh, z], i * 3);
   }
   geo.setAttribute('sA', new THREE.BufferAttribute(sA, 4));
   geo.setAttribute('sB', new THREE.BufferAttribute(sB, 3));
   geo.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
   geo.setAttribute('aHalf', new THREE.BufferAttribute(half, 1));
+  geo.setAttribute('aField', new THREE.BufferAttribute(field, 3));
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 5);
   // share of particles shown per shape, relative to a reference surface area of 17 units²
   // (flat shapes such as wings get an extra trim: top and bottom skins overlap on screen)

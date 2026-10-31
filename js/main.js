@@ -192,8 +192,10 @@ function measure() {
     const r = el.getBoundingClientRect();
     const top = r.top + scrollY, bottom = r.bottom + scrollY;
     // stable while the section is the main thing on screen
-    const s = k.holdTop !== undefined ? k.holdTop : top - vh * 0.35;
-    const e = k.holdEnd !== undefined ? (k.holdEnd > 50 ? Infinity : top + vh * k.holdEnd) : bottom - vh * 0.75;
+    // (holds are kept short so each transition, with its dust-field interlude, gets
+    // a good stretch of scroll)
+    const s = k.holdTop !== undefined ? k.holdTop : top - vh * 0.25;
+    const e = k.holdEnd !== undefined ? (k.holdEnd > 50 ? Infinity : top + vh * k.holdEnd) : bottom - vh * 0.95;
     return { s, e: Math.max(e, s + 1) };
   });
 }
@@ -232,9 +234,10 @@ function update3D(dt = 1 / 60) {
     const st = (which === 'a' ? gl.A : gl.B).state;
     const p0 = pose(kf, which, L), p1 = pose(kt, which, L);
     st.from = p0.shape; st.to = p1.shape; st.t = t;
-    st.x = p0.x + (p1.x - p0.x) * t;
-    st.y = p0.y + (p1.y - p0.y) * t;
-    st.scale = p0.scale + (p1.scale - p0.scale) * t;
+    // models dissolve where they stand and re-form at their new spot; the jump
+    // happens at t = 0.5, when every node is out in the dust field
+    const p = t < 0.5 ? p0 : p1;
+    st.x = p.x; st.y = p.y; st.scale = p.scale;
   }
   gl.view.ringOpacity = (kf.rings || 0) * (1 - t) + (kt.rings || 0) * t;
   const k = t < 0.5 ? kf : kt;
