@@ -144,7 +144,7 @@ export function createScene(canvas, { lowPower = false } = {}) {
   const area = [];
   shapeBuilders.forEach((build, si) => {
     const shapeGeo = build();
-    area[si] = surfaceArea(shapeGeo);
+    area[si] = shapeGeo.userData.area ?? surfaceArea(shapeGeo);
     const mesh = new THREE.Mesh(shapeGeo);
     const sampler = new MeshSurfaceSampler(mesh).build();
     const arr = new Float32Array(COUNT * 3);

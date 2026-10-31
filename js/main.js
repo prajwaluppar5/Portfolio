@@ -156,31 +156,38 @@ gsap.from('.stat', { y: 60, opacity: 0, stagger: 0.08, duration: 1, ease: 'power
    to the next layout while morphing, so every change uses the same motion. */
 const hudCase = $('#hudCase');
 const hudProg = $('#hudProg');
-const SHAPE = { brain: 0, amca: 1, tejas: 2, car: 3, mono: 4, gear: 5, molar: 6 };
+const SHAPE = { gyroid: 0, amca: 1, tejas: 2, car: 3, mono: 4, gear: 5, molar: 6 };
 
 function layouts() {
   const m = isMobile();
-  const halfW = Math.tan((17.5 * Math.PI) / 180) * 7.2 * (innerWidth / innerHeight);
-  const gx = Math.min(2.7, halfW * 0.68); // gutter beside the centred card
-  const sc = Math.min(0.62, halfW * 0.17);
+  const W = innerWidth;
+  const halfH = Math.tan((17.5 * Math.PI) / 180) * 7.2;
+  const halfW = halfH * (W / innerHeight);
+  // desktop: the screen is three slots (left gutter | card | right gutter);
+  // each model sits in the centre of its gutter and is sized to fill it
+  const cardW = ($('.chapter__inner') || {}).offsetWidth || 520;
+  const slotPx = (W - cardW) / 2;
+  const gx = (1 - slotPx / W) * halfW; // world x of the right slot's centre
+  const slotW = (slotPx / W) * 2 * halfW;
+  const sc = Math.min((slotW * 0.82) / 2.6, halfH * 0.62);
   return {
-    hero: m ? { x: 0, y: 1.35, scale: 0.75 } : { x: Math.min(2.2, halfW * 0.55), y: 0.05, scale: 0.95 },
+    hero: m ? { x: 0, y: 1.35, scale: 0.75 } : { x: Math.min(2.2, halfW * 0.55), y: 0.05, scale: 1.05 },
     pairA: m ? { x: 0.72, y: 1.9, scale: 0.36 } : { x: gx, y: 0, scale: sc },
     pairB: m ? { x: -0.72, y: 1.9, scale: 0.36 } : { x: -gx, y: 0, scale: sc },
     right: m ? { x: 0, y: 1.6, scale: 0.6 } : { x: gx, y: 0, scale: sc },
     left: m ? { x: 0, y: 1.6, scale: 0.6 } : { x: -gx, y: 0, scale: sc },
-    contact: m ? { x: 0, y: -1.6, scale: 0.85 } : { x: Math.min(2.4, halfW * 0.6), y: -0.3, scale: 0.9 },
+    contact: m ? { x: 0, y: -1.6, scale: 0.85 } : { x: Math.min(2.4, halfW * 0.6), y: -0.3, scale: 0.95 },
   };
 }
 
 // keyframes: el = section, a/b = [shape, layout key, scale factor]
 const KEYS = [
-  { el: '.hero', a: ['brain', 'hero'], b: ['brain', 'hero'], hud: 'LC0 · Cortex', rings: 0.22, holdTop: 0, holdEnd: 0.12 },
-  { el: '.chapter[data-key="ch1"]', a: ['amca', 'pairA', 0.82], b: ['tejas', 'pairB', 0.82], hud: 'LC1 · Aerospace' },
-  { el: '.chapter[data-key="ch2"]', a: ['car', 'pairA'], b: ['mono', 'pairB'], hud: 'LC2 · Motorsport' },
+  { el: '.hero', a: ['gyroid', 'hero'], b: ['gyroid', 'hero'], hud: 'LC0 · Gyroid lattice', rings: 0.22, holdTop: 0, holdEnd: 0.12 },
+  { el: '.chapter[data-key="ch1"]', a: ['amca', 'pairA', 0.7], b: ['tejas', 'pairB', 0.7], hud: 'LC1 · Aerospace' },
+  { el: '.chapter[data-key="ch2"]', a: ['car', 'pairA', 0.72], b: ['mono', 'pairB', 0.72], hud: 'LC2 · Motorsport' },
   { el: '.chapter[data-key="ch3"]', a: ['gear', 'right'], b: ['gear', 'right'], hud: 'LC3 · Research', rings: 0.12 },
-  { el: '.chapter[data-key="ch4"]', a: ['molar', 'left'], b: ['molar', 'left'], hud: 'LC4 · Biomechanics', rings: 0.12 },
-  { el: '.contact', a: ['brain', 'contact'], b: ['brain', 'contact'], hud: 'LC5 · Your problem', rings: 0.22, holdEnd: 99 },
+  { el: '.chapter[data-key="ch4"]', a: ['molar', 'left', 0.82], b: ['molar', 'left', 0.82], hud: 'LC4 · Biomechanics', rings: 0.12 },
+  { el: '.contact', a: ['gyroid', 'contact'], b: ['gyroid', 'contact'], hud: 'LC5 · Your problem', rings: 0.22, holdEnd: 99 },
 ];
 let ranges = [];
 function measure() {

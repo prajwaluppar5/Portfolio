@@ -17,47 +17,41 @@ function merge(list) {
   );
 }
 
-// 1. Hero — a procedural brain: two folded hemispheres, cerebellum and brain stem
-export function brain() {
-  const parts = [];
-  const v = new THREE.Vector3();
-  for (const side of [1, -1]) {
-    const g = new THREE.SphereGeometry(1, 120, 90);
-    const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      v.fromBufferAttribute(p, i);
-      // gyri and sulci: ridges from interfering waves, sharpened with abs()
-      const fold = Math.abs(Math.sin(v.x * 7 + Math.sin(v.y * 6) * 1.6 + Math.cos(v.z * 5) * 1.2))
-        * Math.abs(Math.sin(v.z * 6 + Math.sin(v.x * 5) * 1.4));
-      let r = 1 + 0.13 * fold;
-      // flatten the medial face so the two hemispheres meet at a fissure
-      v.multiplyScalar(r);
-      // hemisphere: long front-to-back, taller at the back, flat inner (medial) face
-      let x = v.x * 0.5;
-      if (x * side < 0) x *= 0.35;
-      const yy = v.y * (0.62 + 0.08 * v.z) + 0.12;
-      const zz = v.z * 0.98 + (v.y < 0 ? 0.08 * v.y : 0);
-      p.setXYZ(i, x + side * 0.2, yy, zz);
+// 1. Hero — a gyroid lattice sphere: the triply periodic minimal surface used for
+// lightweight, topology-optimised and 3D-printed structures. Points are found by
+// projecting random points in a ball onto the surface sin x cos y + sin y cos z +
+// sin z cos x = 0, then wrapped in tiny equal-area triangles so the sampler picks
+// them uniformly. userData.area tells the scene its true surface area.
+export function gyroid() {
+  const R = 1.25, k = 6.2; // ball radius, lattice frequency (cells per unit ≈ k / 2π)
+  const pts = [];
+  const N = 90000;
+  let guard = 0;
+  while (pts.length < N && guard++ < N * 6) {
+    let x = (Math.random() * 2 - 1) * R, y = (Math.random() * 2 - 1) * R, z = (Math.random() * 2 - 1) * R;
+    if (x * x + y * y + z * z > R * R) continue;
+    for (let it = 0; it < 6; it++) {
+      const X = x * k, Y = y * k, Z = z * k;
+      const f = Math.sin(X) * Math.cos(Y) + Math.sin(Y) * Math.cos(Z) + Math.sin(Z) * Math.cos(X);
+      const gx = k * (Math.cos(X) * Math.cos(Y) - Math.sin(Z) * Math.sin(X));
+      const gy = k * (-Math.sin(X) * Math.sin(Y) + Math.cos(Y) * Math.cos(Z));
+      const gz = k * (-Math.sin(Y) * Math.sin(Z) + Math.cos(Z) * Math.cos(X));
+      const g2 = gx * gx + gy * gy + gz * gz + 1e-6;
+      x -= (f * gx) / g2; y -= (f * gy) / g2; z -= (f * gz) / g2;
     }
-    parts.push(g);
+    if (x * x + y * y + z * z <= R * R) pts.push(x, y, z);
   }
-  // cerebellum: fine horizontal folds, tucked under the back
-  const cb = new THREE.SphereGeometry(1, 80, 50);
-  const q = cb.attributes.position;
-  for (let i = 0; i < q.count; i++) {
-    v.fromBufferAttribute(q, i);
-    v.multiplyScalar(1 + 0.05 * Math.abs(Math.sin(v.y * 22)));
-    q.setXYZ(i, v.x * 0.5, v.y * 0.24 - 0.42, v.z * 0.32 - 0.62);
+  const pos = new Float32Array((pts.length / 3) * 9);
+  const e = 0.002;
+  for (let i = 0, j = 0; i < pts.length; i += 3, j += 9) {
+    pos.set([pts[i], pts[i + 1], pts[i + 2], pts[i] + e, pts[i + 1], pts[i + 2], pts[i], pts[i + 1] + e, pts[i + 2]], j);
   }
-  parts.push(cb);
-  const stem = new THREE.CylinderGeometry(0.13, 0.17, 0.7, 24, 6, true);
-  stem.rotateX(0.3);
-  stem.translate(0, -0.66, -0.32);
-  parts.push(stem);
-  const g = merge(parts);
-  g.scale(1.15, 1.15, 1.15);
-  g.rotateY(-1.05);
-  g.rotateX(0.15);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.rotateY(0.4);
+  g.rotateX(0.35);
+  // gyroid surface area per unit volume ≈ 3.1·k/(2π); ball volume 4/3·π·R³
+  g.userData.area = 3.1 * (k / (2 * Math.PI)) * (4 / 3) * Math.PI * R ** 3;
   return g;
 }
 
@@ -501,7 +495,7 @@ export function gear() {
 // Each shape gets one or more load points. Each shape gets a pseudo "stress" field: hot near a load point, cool far away,
 // with a little noise so the contour looks like a real result plot.
 export const loadPoints = [
-  new THREE.Vector3(0.5, 0.75, 0.5),  // brain: hot spot on the upper cortex
+  new THREE.Vector3(0.7, 0.8, 0.5),   // gyroid: point load on the upper shell
   // aircraft: wing-root bending on both sides (coordinates in the showcase pose)
   [shown(0.3, 0, -0.25), shown(-0.3, 0, -0.25)],   // AMCA
   [shown(0.3, 0, -0.35), shown(-0.3, 0, -0.35)],   // Tejas
@@ -513,6 +507,6 @@ export const loadPoints = [
   [molarPt(-0.32, 0.45, -0.28), molarPt(-0.34, 0.43, 0.27)],
 ];
 
-export const shapeBuilders = [brain, amca, tejas, fsCar, monocoque, gear, molar];
+export const shapeBuilders = [gyroid, amca, tejas, fsCar, monocoque, gear, molar];
 // extra particle thinning for flat shapes (wings, plates) whose skins overlap on screen
 export const densityTrim = [1, 0.55, 0.6, 0.95, 1, 1, 1];

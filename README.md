@@ -20,10 +20,10 @@ No build step. All libraries and fonts are saved in `vendor/` and `fonts/`, so i
 | Section | Effect |
 |---|---|
 | Loader | Counts up "solver" steps with a stress-legend progress bar, then the curtain wipes up |
-| Hero | Name on the left, a particle brain on the right that assembles from an explosion |
+| Hero | Name on the left, a particle gyroid lattice sphere on the right that assembles from an explosion |
 | Marquee | Infinite ticker that speeds up and reverses with scroll velocity |
 | About | Words light up as you scroll; stats count up |
-| Experience | Cards centred. One scroll-scrubbed system: the brain splits into **LCA Tejas** (left) + **AMCA** (right), these re-form into the **CFRP monocoque** + **KA-RaceIng FS car**, then the halves join into one **gear**, then a **molar**, and back to the brain at Contact |
+| Experience | Cards centred. One scroll-scrubbed system: the gyroid splits into **LCA Tejas** (left) + **AMCA** (right), these re-form into the **CFRP monocoque** + **KA-RaceIng FS car**, then the halves join into one **gear**, then a **molar**, and back to the gyroid at Contact |
 | Projects | Pinned horizontal scroll; each card has a procedural FE contour plot that deforms on hover |
 | Toolkit / Contact | Hover fills, magnetic buttons, Karlsruhe live clock, custom cursor with labels |
 
