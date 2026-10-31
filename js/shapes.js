@@ -44,7 +44,7 @@ function loft(stations, seg = 48) {
     for (let k = 0; k < seg; k++) {
       const t = (k / seg) * Math.PI * 2;
       const c = Math.cos(t), sn = Math.sin(t);
-      const p = s.p || 1, q = s.q || 1;
+      const p = sn > 0 ? s.p || 1 : s.pb ?? s.p ?? 1, q = s.q || 1;
       const top = sn > 0 ? s.ht ?? s.h : s.h;
       pts.push([(s.x || 0) + s.w * Math.sign(c) * Math.pow(Math.abs(c), q), (s.y || 0) + top * Math.sign(sn) * Math.pow(Math.abs(sn), p), s.z]);
     }
@@ -167,9 +167,8 @@ export function tejas() {
   return showcase(merge(parts));
 }
 
-// ---- Formula Student car (modelled on KA-RaceIng's 2025 electric car, KIT25) ----
-// Typical FS proportions: ~2.9 m long, ~1.53 m wheelbase, ~1.2 m track, 10" wheels.
-// Scale: 0.9 units per metre. Axes as the aircraft: x = width, y = up, z = length (nose +z).
+// ---- KA-RaceIng Formula Student car (reference: KIT19c render supplied by Prajwal) ----
+// Axes: x = width, y = up, z = length (nose +z). ~0.95 units per metre.
 function rod(a, b, r = 0.012) {
   const va = new THREE.Vector3(...a), vb = new THREE.Vector3(...b);
   const len = va.distanceTo(vb);
@@ -180,114 +179,144 @@ function rod(a, b, r = 0.012) {
   return g;
 }
 function hoop(z, y0, halfW, height, r = 0.016) {
-  // roll hoop: two legs + a top arc
   const g = new THREE.TorusGeometry(halfW, r, 8, 32, Math.PI);
   g.translate(0, y0 + height - halfW, z);
   return [g, rod([halfW, y0, z], [halfW, y0 + height - halfW, z], r), rod([-halfW, y0, z], [-halfW, y0 + height - halfW, z], r)];
 }
-// carbon tub: boxy loft with a real cockpit opening
-function tub() {
-  const st = [
-    { z: 1.02, w: 0.07, h: 0.07, y: 0.24, p: 0.55, q: 0.55 },
-    { z: 0.85, w: 0.14, h: 0.12, y: 0.25, p: 0.55, q: 0.55 },
-    { z: 0.6, w: 0.19, h: 0.16, y: 0.27, p: 0.5, q: 0.5 },
-    { z: 0.36, w: 0.22, h: 0.18, y: 0.28, p: 0.5, q: 0.5, open: true },
-    { z: 0.0, w: 0.24, h: 0.19, y: 0.28, p: 0.5, q: 0.5, open: true },
-    { z: -0.36, w: 0.25, h: 0.2, y: 0.28, p: 0.5, q: 0.5, open: true },
-    { z: -0.46, w: 0.25, h: 0.2, y: 0.28, p: 0.5, q: 0.5 },
-  ];
-  return loft(st, 56);
-}
-export function monocoque() {
-  const parts = [tub()];
-  // front bulkhead plate + cockpit rim
-  const bh = new THREE.BoxGeometry(0.15, 0.13, 0.02, 4, 4, 1);
-  bh.translate(0, 0.25, 1.03);
-  parts.push(bh);
-  const rim = new THREE.TorusGeometry(1, 0.012, 6, 64);
-  rim.rotateX(Math.PI / 2);
-  rim.scale(0.2, 1, 0.36);
-  rim.translate(0, 0.47, -0.02);
-  parts.push(rim);
-  // steel roll hoops and main-hoop bracing (part of the primary structure)
-  parts.push(...hoop(0.36, 0.44, 0.17, 0.2), ...hoop(-0.44, 0.44, 0.2, 0.42));
-  parts.push(rod([0.12, 0.84, -0.44], [0.16, 0.42, -0.85]), rod([-0.12, 0.84, -0.44], [-0.16, 0.42, -0.85]));
-  // suspension pick-up inserts on the tub sides
-  for (const s of [1, -1]) for (const z of [0.75, 0.55, -0.3]) {
-    const ins = new THREE.CylinderGeometry(0.025, 0.025, 0.03, 12);
-    ins.rotateZ(Math.PI / 2);
-    ins.translate(s * 0.2, 0.2, z);
-    parts.push(ins);
+// wing element: a thin plank from the leading edge (zLE) back by `chord`, spanning x0..x1,
+// pitched by `aoa` (positive lifts the trailing edge), with a slight camber droop
+function element(x0, x1, zLE, chord, y, aoa, { t = 0.014, mirror = true } = {}) {
+  const g = new THREE.BoxGeometry(x1 - x0, t, chord, 10, 1, 6);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const u = (p.getZ(i) + chord / 2) / chord; // 0 at TE, 1 at LE
+    p.setY(i, p.getY(i) + Math.sin(u * Math.PI) * chord * 0.08); // camber
   }
-  return carPose(merge(parts), 1.25);
+  g.translate((x0 + x1) / 2, 0, -chord / 2);
+  g.rotateX(aoa);
+  g.translate(0, y, zLE);
+  if (!mirror) return [g];
+  const o = g.clone(); o.scale(-1, 1, 1);
+  return [g, o];
 }
-function wheelAt(x, z) {
-  const parts = [];
-  const tyre = new THREE.CylinderGeometry(0.205, 0.205, 0.18, 48, 2, true);
-  tyre.rotateZ(Math.PI / 2);
-  const side = new THREE.RingGeometry(0.12, 0.205, 48, 1);
-  side.rotateY(Math.PI / 2);
-  const sideIn = side.clone();
-  side.translate(0.09, 0, 0); sideIn.translate(-0.09, 0, 0);
-  const rimG = new THREE.CircleGeometry(0.12, 32);
-  rimG.rotateY(Math.PI / 2 * Math.sign(x));
-  rimG.translate(0.05 * Math.sign(x), 0, 0);
-  for (const g of [tyre, side, sideIn, rimG]) { g.translate(x, 0.205, z); parts.push(g); }
-  return parts;
+// carbon body: rounded top, flat bottom; `p` shapes the top, `pb` the floor, `q` the sides
+const NOSE = [
+  { z: 1.42, w: 0.05, ht: 0.035, h: 0.025, y: 0.14 },
+  { z: 1.34, w: 0.12, ht: 0.09, h: 0.045, y: 0.15 },
+  { z: 1.2, w: 0.17, ht: 0.15, h: 0.06, y: 0.16 },
+  { z: 1.02, w: 0.2, ht: 0.21, h: 0.08, y: 0.17 },
+  { z: 0.84, w: 0.215, ht: 0.25, h: 0.09, y: 0.18 },
+];
+const TUB = [
+  { z: 0.62, w: 0.225, ht: 0.27, h: 0.1, y: 0.2 },
+  { z: 0.42, w: 0.23, ht: 0.28, h: 0.1, y: 0.2 },
+  { z: 0.3, w: 0.23, ht: 0.26, h: 0.1, y: 0.2, open: true },
+  { z: 0.0, w: 0.24, ht: 0.2, h: 0.1, y: 0.2, open: true },
+  { z: -0.32, w: 0.245, ht: 0.2, h: 0.1, y: 0.2, open: true },
+  { z: -0.44, w: 0.24, ht: 0.2, h: 0.1, y: 0.2 },
+];
+const bodyStyle = (s) => ({ p: 0.85, pb: 0.3, q: 0.7, ...s });
+export function monocoque() {
+  // the tub alone: front bulkhead at the nose-cone joint, open cockpit, roll hoops
+  const parts = [loft([NOSE[4], ...TUB].map(bodyStyle), 56)];
+  const bh = new THREE.CircleGeometry(1, 32); bh.scale(0.2, 0.16, 1); bh.translate(0, 0.24, 0.84); parts.push(bh);
+  const rim = new THREE.TorusGeometry(1, 0.012, 6, 64);
+  rim.rotateX(Math.PI / 2); rim.scale(0.21, 1, 0.37); rim.translate(0, 0.42, -0.01); parts.push(rim);
+  parts.push(...hoop(0.36, 0.4, 0.18, 0.2), ...hoop(-0.42, 0.32, 0.2, 0.72));
+  parts.push(rod([0.14, 0.98, -0.42], [0.18, 0.36, -0.9]), rod([-0.14, 0.98, -0.42], [-0.18, 0.36, -0.9]));
+  for (const s of [1, -1]) for (const z of [0.7, 0.5, -0.3]) for (const y of [0.13, 0.33]) {
+    const ins = new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12); ins.rotateZ(Math.PI / 2); ins.translate(s * 0.22, y, z); parts.push(ins);
+  }
+  return carPose(merge(parts), 1.15);
+}
+function tyre(x, z, r = 0.215, w = 0.2) {
+  // rounded tyre section revolved, plus a three-spoke carbon rim
+  const prof = [];
+  const rIn = 0.13, rr = 0.045;
+  prof.push(new THREE.Vector2(rIn, -w / 2));
+  for (let k = 0; k <= 6; k++) { const a = -Math.PI / 2 + (k / 6) * (Math.PI / 2); prof.push(new THREE.Vector2(r - rr + Math.cos(a) * rr, -w / 2 + rr + Math.sin(a) * rr)); }
+  for (let k = 0; k <= 6; k++) { const a = (k / 6) * (Math.PI / 2); prof.push(new THREE.Vector2(r - rr + Math.cos(a) * rr, w / 2 - rr + Math.sin(a) * rr)); }
+  prof.push(new THREE.Vector2(rIn, w / 2));
+  const t = new THREE.LatheGeometry(prof, 48);
+  t.rotateZ(Math.PI / 2);
+  const out = [t];
+  const s = Math.sign(x);
+  const face = new THREE.RingGeometry(0.04, rIn, 32, 1); face.rotateY(Math.PI / 2); face.translate(s * 0.07, 0, 0); out.push(face);
+  for (let k = 0; k < 3; k++) {
+    const sp = new THREE.BoxGeometry(0.02, 0.1, 0.035); sp.translate(0, 0.075, 0); sp.rotateX((k / 3) * Math.PI * 2); sp.translate(s * 0.08, 0, 0); out.push(sp);
+  }
+  const hub = new THREE.CylinderGeometry(0.04, 0.04, 0.05, 16); hub.rotateZ(Math.PI / 2); hub.translate(s * 0.09, 0, 0); out.push(hub);
+  out.forEach((g) => g.translate(x, r, z));
+  return out;
 }
 export function fsCar() {
-  const parts = [tub()];
-  // nose cone with LiDAR (driverless) and the driver's helmet
-  parts.push(loft([
-    { z: 1.32, w: 0.02, h: 0.02, y: 0.17 }, { z: 1.2, w: 0.07, h: 0.05, y: 0.19 }, { z: 1.02, w: 0.09, h: 0.08, y: 0.22 },
-  ], 32));
-  const lidar = new THREE.CylinderGeometry(0.04, 0.04, 0.06, 24); lidar.translate(0, 0.12, 1.24); parts.push(lidar);
-  const helmet = new THREE.SphereGeometry(0.1, 24, 16); helmet.scale(1, 1.05, 1.15); helmet.translate(0, 0.6, -0.2); parts.push(helmet);
-  parts.push(...hoop(0.36, 0.44, 0.17, 0.2), ...hoop(-0.44, 0.44, 0.2, 0.42));
-  // rear: motor / accumulator bodywork tapering to the diffuser
-  parts.push(loft([
-    { z: -0.46, w: 0.24, h: 0.18, y: 0.28, p: 0.6, q: 0.6 },
-    { z: -0.75, w: 0.21, h: 0.15, y: 0.27, p: 0.6, q: 0.6 },
-    { z: -0.98, w: 0.12, h: 0.1, y: 0.24, p: 0.6, q: 0.6 },
-  ], 40));
-  // sidepods with radiator inlets
+  const parts = [];
+  // long low nose rising in one curve to the cockpit, then the tub
+  const body = loft([...NOSE, ...TUB].map(bodyStyle), 56);
+  parts.push(body);
+  const weighted = [body.clone()];
+  // exposed rear: engine block, exhaust, rear space-frame
+  const eng = new THREE.BoxGeometry(0.3, 0.24, 0.36, 4, 4, 4); eng.translate(0, 0.24, -0.66); parts.push(eng);
+  parts.push(rod([0.06, 0.3, -0.6], [0.12, 0.44, -1.0], 0.025));
+  for (const s of [1, -1]) {
+    parts.push(rod([s * 0.2, 0.12, -0.44], [s * 0.17, 0.12, -0.95]), rod([s * 0.2, 0.36, -0.44], [s * 0.15, 0.36, -0.95]), rod([s * 0.2, 0.12, -0.6], [s * 0.18, 0.36, -0.82]));
+  }
+  // sidepods: flat-topped, rounded edges, open radiator inlet at the front
   for (const s of [1, -1]) {
     parts.push(loft([
-      { z: 0.22, w: 0.07, h: 0.08, y: 0.2, p: 0.5, q: 0.5 },
-      { z: 0.0, w: 0.1, h: 0.12, y: 0.22, p: 0.5, q: 0.5 },
-      { z: -0.5, w: 0.08, h: 0.09, y: 0.2, p: 0.5, q: 0.5 },
-    ].map((st) => ({ ...st, x: s * 0.33 })), 32));
+      { z: 0.36, w: 0.07, ht: 0.08, h: 0.08, y: 0.17 },
+      { z: 0.2, w: 0.11, ht: 0.11, h: 0.1, y: 0.19 },
+      { z: -0.3, w: 0.11, ht: 0.1, h: 0.1, y: 0.19 },
+      { z: -0.56, w: 0.07, ht: 0.06, h: 0.07, y: 0.16 },
+    ].map((st) => ({ ...st, x: s * 0.34, p: 0.45, pb: 0.4, q: 0.5 })), 32));
+    // side wing between the wheels: floor plane, rising flap and a tall endplate
+    parts.push(...element(s > 0 ? 0.45 : -0.6, s > 0 ? 0.6 : -0.45, 0.3, 0.6, 0.06, 0.02, { mirror: false }));
+    parts.push(...element(s > 0 ? 0.45 : -0.6, s > 0 ? 0.6 : -0.45, -0.28, 0.24, 0.12, 0.45, { mirror: false }));
+    parts.push(fin([[0.32, 0.02], [0.32, 0.17], [-0.55, 0.36], [-0.56, 0.02]], { x: s * 0.61, t: 0.014 }));
   }
-  // undertray / floor
-  parts.push(...planform([[0.0, 0.5], [0.42, 0.25], [0.42, -0.75], [0.0, -0.9]], { t: 0.012, y: 0.05 }));
-  // front wing: main plane + two flaps, endplates
-  parts.push(...planform([[0.0, 1.36], [0.62, 1.36], [0.62, 1.12], [0.0, 1.16]], { t: 0.012, y: 0.06 }));
-  parts.push(...planform([[0.12, 1.12], [0.62, 1.1], [0.62, 1.0], [0.12, 1.02]], { t: 0.01, y: 0.12 }));
-  parts.push(...planform([[0.18, 1.0], [0.62, 0.98], [0.62, 0.92], [0.18, 0.94]], { t: 0.01, y: 0.18 }));
-  for (const s of [1, -1]) { const ep = new THREE.BoxGeometry(0.012, 0.2, 0.46, 1, 4, 8); ep.translate(s * 0.63, 0.13, 1.14); parts.push(ep); }
-  // rear wing: three stacked elements between big endplates
-  parts.push(...planform([[0.0, -1.02], [0.5, -1.02], [0.5, -1.3], [0.0, -1.3]], { t: 0.012, y: 0.78 }));
-  parts.push(...planform([[0.0, -0.95], [0.5, -0.95], [0.5, -1.08], [0.0, -1.08]], { t: 0.01, y: 0.9 }));
-  parts.push(...planform([[0.0, -0.88], [0.5, -0.88], [0.5, -0.98], [0.0, -0.98]], { t: 0.01, y: 1.0 }));
+  // floor
+  parts.push(...planform([[0.0, 0.95], [0.3, 0.6], [0.42, 0.35], [0.42, -0.6], [0.0, -0.9]], { t: 0.012, y: 0.035 }));
+  // front wing: full-width main plane, two flaps curling up outboard, fences and endplates
+  parts.push(...element(0, 0.72, 1.52, 0.27, 0.05, 0.06));
+  parts.push(...element(0.2, 0.72, 1.27, 0.15, 0.105, 0.45));
+  parts.push(...element(0.28, 0.72, 1.15, 0.11, 0.165, 0.8));
   for (const s of [1, -1]) {
-    const ep = new THREE.BoxGeometry(0.012, 0.42, 0.5, 1, 6, 8); ep.translate(s * 0.51, 0.84, -1.1); parts.push(ep);
-    parts.push(rod([s * 0.12, 0.4, -0.85], [s * 0.2, 0.78, -1.12], 0.014));
+    parts.push(fin([[1.54, 0.01], [1.54, 0.16], [1.3, 0.29], [0.98, 0.29], [0.96, 0.01]], { x: s * 0.73, t: 0.014 }));
+    parts.push(fin([[1.42, 0.05], [1.36, 0.25], [1.18, 0.27], [1.12, 0.06]], { x: s * 0.25, t: 0.012 }));
   }
-  // wheels: wheelbase ≈ 1.53 m, track ≈ 1.2 m
-  const zF = 0.72, zR = -0.66, xT = 0.56;
+  // nose antenna and front push-rod/steering details
+  parts.push(rod([0, 0.46, 0.7], [0, 0.64, 0.72], 0.006));
+  // roll hoops: small front hoop, tall main hoop braced backwards; headrest
+  parts.push(...hoop(0.36, 0.4, 0.18, 0.2), ...hoop(-0.42, 0.32, 0.2, 0.72));
+  parts.push(rod([0.14, 0.98, -0.42], [0.18, 0.36, -0.9]), rod([-0.14, 0.98, -0.42], [-0.18, 0.36, -0.9]));
+  const head = new THREE.BoxGeometry(0.2, 0.2, 0.06, 4, 4, 1); head.translate(0, 0.55, -0.36); parts.push(head);
+  // rear wing: big four-element stack between tall rectangular endplates
+  parts.push(...element(0, 0.56, -0.86, 0.36, 0.8, 0.12));
+  parts.push(...element(0, 0.56, -1.1, 0.22, 0.93, 0.55));
+  parts.push(...element(0, 0.56, -1.24, 0.15, 1.05, 0.9));
+  parts.push(...element(0, 0.56, -1.31, 0.11, 1.14, 1.2));
   for (const s of [1, -1]) {
-    parts.push(...wheelAt(s * xT, zF), ...wheelAt(s * xT, zR));
-    // double wishbones + push rods
-    for (const [z, zz] of [[zF, 0.12], [zR, 0.1]]) {
-      const hub = [s * (xT - 0.07), 0.205, z];
-      for (const y of [0.12, 0.3]) {
-        parts.push(rod([s * 0.2, y, z + zz], [hub[0], y, z]), rod([s * 0.2, y, z - zz], [hub[0], y, z]));
-      }
-      parts.push(rod([hub[0], 0.12, z], [s * 0.18, 0.42, z], 0.009));
+    parts.push(fin([[-0.8, 0.52], [-0.82, 1.27], [-1.44, 1.27], [-1.44, 0.6]], { x: s * 0.57, t: 0.014 }));
+    parts.push(rod([s * 0.1, 0.42, -0.9], [s * 0.14, 0.8, -1.0], 0.014));
+  }
+  // wheels (wheelbase ≈ 1.53 m, track ≈ 1.2 m) with double wishbones and push rods
+  const zF = 0.62, zR = -0.82, xT = 0.6;
+  for (const s of [1, -1]) {
+    const wheels = [...tyre(s * xT, zF), ...tyre(s * (xT - 0.01), zR)];
+    parts.push(...wheels);
+    weighted.push(...wheels.map((g) => g.clone()), ...wheels.map((g) => g.clone()));
+    for (const [z, zz, xi] of [[zF, 0.12, 0.21], [zR, 0.1, 0.19]]) {
+      const hx = s * (xT - 0.09);
+      for (const y of [0.12, 0.3]) parts.push(rod([s * xi, y, z + zz], [hx, y, z]), rod([s * xi, y, z - zz], [hx, y, z]));
+      parts.push(rod([hx, 0.13, z], [s * (xi - 0.02), 0.42, z], 0.009));
     }
   }
-  return carPose(merge(parts), 1.05);
+  // particle weighting: big flat plates (wings, floor) would take most particles, so the
+  // body and tyres are added a second time to be sampled twice as densely
+  parts.push(...weighted);
+  return carPose(merge(parts), 0.98);
 }
+
 function carPt(x, y, z, scale) {
   return new THREE.Vector3(x, y - 0.35, z).multiplyScalar(scale)
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.75).applyAxisAngle(new THREE.Vector3(1, 0, 0), 0.3);
@@ -380,12 +409,12 @@ export const loadPoints = [
   [shown(0.3, 0, -0.25), shown(-0.3, 0, -0.25)],   // AMCA
   [shown(0.3, 0, -0.35), shown(-0.3, 0, -0.35)],   // Tejas
   // car: front-wing mounts + main hoop; monocoque: main-hoop / tub junction and front bulkhead
-  [carPt(0, 0.1, 0.95, 1.05), carPt(0, 0.85, -0.44, 1.05)],
-  [carPt(0, 0.44, -0.44, 1.25), carPt(0, 0.25, 0.95, 1.25)],
+  [carPt(0, 0.1, 1.3, 0.98), carPt(0, 0.95, -1.0, 0.98)],
+  [carPt(0, 0.4, -0.42, 1.15), carPt(0, 0.22, 0.88, 1.15)],
   new THREE.Vector3(1.1, 0.2, 0),     // gear: tooth in mesh
   new THREE.Vector3(0.3, 0.9, 0.2),   // molar: occlusal cusp
 ];
 
 export const shapeBuilders = [specimen, amca, tejas, fsCar, monocoque, gear, molar];
 // extra particle thinning for flat shapes (wings, plates) whose skins overlap on screen
-export const densityTrim = [1, 0.55, 0.6, 0.6, 1, 1, 1];
+export const densityTrim = [1, 0.55, 0.6, 0.95, 1, 1, 1];
