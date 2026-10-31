@@ -112,8 +112,7 @@ section { position: relative; padding: 0 var(--gutter); }
 
 /* ---------- Work chapters ---------- */
 .work { padding-top: 10vh; }
-.chapter { min-height: 140vh; display: flex; align-items: center; }
-.chapter--right { justify-content: flex-end; }
+.chapter { min-height: 140vh; display: flex; align-items: center; justify-content: center; }
 .chapter__inner { width: min(520px, 100%); position: sticky; top: 15vh; padding: 2rem; background: rgba(11, 12, 11, .62); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line); }
 .chapter__index { font-size: 1rem; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-weight: 400; margin-bottom: 1.2rem; }
 .chapter__head { display: flex; justify-content: space-between; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: .8rem; margin-bottom: 1.2rem; }
@@ -123,11 +122,9 @@ section { position: relative; padding: 0 var(--gutter); }
 .chapter__list li { padding-left: 1.4rem; position: relative; color: #c9c9c1; }
 .chapter__list li::before { content: ''; position: absolute; left: 0; top: .65em; width: .7rem; height: 1px; background: var(--accent); }
 .chapter__list b { color: var(--fg); font-weight: 500; }
-.chapter--tall { min-height: 220vh; }
-.chapter__model { display: flex; align-items: center; gap: .6em; color: var(--muted); margin-top: 1.4rem; }
-.chapter__model i { width: 7px; height: 7px; border-radius: 50%; background: var(--legend); }
-.chapter__model span { transition: color .4s; }
-.chapter__model span.is-on { color: var(--fg); border-bottom: 1px solid var(--accent); }
+.obj-label { position: fixed; left: 0; top: 0; z-index: 3; pointer-events: none; color: var(--fg); padding: .35em .8em; border: 1px solid var(--line); border-radius: 99px; background: rgba(11, 12, 11, .6); backdrop-filter: blur(6px); white-space: nowrap; opacity: 0; transition: opacity .5s; }
+.obj-label.is-on { opacity: 1; }
+.obj-label::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: .6em; vertical-align: middle; }
 .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1.6rem; }
 .chips span { border: 1px solid var(--line); border-radius: 99px; padding: .35em .8em; color: var(--muted); }
 
@@ -176,7 +173,6 @@ section { position: relative; padding: 0 var(--gutter); }
   .chapter, .chapter--right { justify-content: center; align-items: flex-end; min-height: 160vh; }
   /* phones: the shape gets a clear screen first, then the card scrolls past (no sticking) */
   .chapter__inner { position: relative; top: auto; margin-bottom: 8vh; }
-  .chapter--tall { min-height: 230vh; }
   .hud { display: none; }
   .hero__bottom { flex-direction: column; align-items: start; }
   .projects__title { text-align: left; }

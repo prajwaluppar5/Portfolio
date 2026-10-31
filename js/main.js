@@ -35,8 +35,9 @@ try {
   console.warn('WebGL unavailable, continuing without 3D', err);
   $('#gl').remove();
 }
-const S = gl ? gl.state : {};
-const U = gl ? gl.uniforms : null;
+const S = gl ? gl.A.state : {};
+const SB = gl ? gl.B.state : {};
+const U = gl ? gl.A.uniforms : null;
 
 /* ---------------- Text splitting ---------------- */
 const heroSplits = $$('.hero .split').map((el) => new SplitText(el, { type: 'words,chars' }));
@@ -151,9 +152,31 @@ $$('[data-count]').forEach((el) => {
 gsap.from('.stat', { y: 60, opacity: 0, stagger: 0.08, duration: 1, ease: 'power3.out', scrollTrigger: { trigger: '.stats', start: 'top 85%' } });
 
 /* ---------------- 3D choreography ---------------- */
+// Body A = main object (right of the card in pairs); body B = partner on the left.
 const hudCase = $('#hudCase');
 const hudProg = $('#hudProg');
-const to3D = (vars) => gl && gsap.to(S, { ...vars, duration: vars.duration || 1.8, ease: vars.ease || 'power3.inOut', overwrite: 'auto' });
+const tw = (target, vars) => gl && gsap.to(target, { duration: 1.8, ease: 'power3.inOut', overwrite: 'auto', ...vars });
+const to3D = (vars) => tw(S, vars);
+const toB = (vars) => tw(SB, vars);
+const labels = { a: $('#labelA'), b: $('#labelB') };
+let labelText = { a: '', b: '' };
+
+// where each body sits in a chapter: pairs flank the centred card, singles sit to one side
+function layout(pair, side = 1) {
+  if (isMobile()) {
+    return pair
+      ? { a: { x: 0.72, y: 1.9, scale: 0.36 }, b: { x: -0.72, y: 1.9, scale: 0.36 } }
+      : { a: { x: 0, y: 1.6, scale: 0.6 } };
+  }
+  // keep the objects in the gutters beside the 520px card at any desktop aspect ratio
+  const halfW = Math.tan((17.5 * Math.PI) / 180) * 7.2 * (innerWidth / innerHeight);
+  const x = Math.min(2.7, halfW * 0.68);
+  const sc = Math.min(0.62, halfW * 0.17);
+  return pair
+    ? { a: { x, y: 0, scale: sc }, b: { x: -x, y: 0, scale: sc } }
+    : { a: { x: x * side, y: 0, scale: sc } };
+}
+function hideB() { toB({ opacity: 0, scale: 0.3, duration: 1 }); labelText.b = ''; }
 
 if (gl) {
   // hero → about: object slides right and shrinks while the type takes over
@@ -161,28 +184,24 @@ if (gl) {
     .to(S, { x: () => (isMobile() ? 0 : 2.1), y: () => (isMobile() ? 1.1 : 0), scale: 0.78, rotX: 0.4, ease: 'none' }, 0)
     .to(U.uHeat, { value: 0.6, ease: 'none' }, 0);
 
-  // each experience chapter morphs the particles into its own shape
   $$('.chapter').forEach((ch) => {
-    const idx = +ch.dataset.shape;
-    const right = ch.classList.contains('chapter--right');
-    const alt = ch.dataset.shapeAlt ? +ch.dataset.shapeAlt : null;
-    const setModel = (tejas) => ch.querySelectorAll('[data-m]').forEach((el) => el.classList.toggle('is-on', (el.dataset.m === 't') === tejas));
-    const showAlt = (on) => {
-      to3D({ morph: on ? alt : idx, duration: 2.2 });
-      hudCase.textContent = on ? ch.dataset.caseAlt : ch.dataset.case;
-      setModel(on);
-    };
-    if (alt !== null) {
-      // halfway through the chapter the AMCA dissolves into the Tejas
-      ScrollTrigger.create({ trigger: ch, start: '50% 55%', onEnter: () => showAlt(true), onLeaveBack: () => showAlt(false) });
-    }
-    const enter = (self) => {
-      const back = self && self.direction < 0 && alt !== null;
-      to3D({ morph: back ? alt : idx, duration: 2.2 });
-      if (back) { showAlt(true); }
-      to3D({ x: isMobile() ? 0 : right ? -2.0 : 2.0, y: isMobile() ? 0.5 : 0, scale: isMobile() ? 0.75 : 0.82, rotX: 0, ringOpacity: 0.12 });
+    const a = +ch.dataset.shape;
+    const b = ch.dataset.shapeB !== undefined ? +ch.dataset.shapeB : null;
+    const side = ch.dataset.side === 'left' ? -1 : 1;
+    const k = +(ch.dataset.scale || 1);
+    const enter = () => {
+      const L = layout(b !== null, side);
+      to3D({ morph: a, duration: 2.2 });
+      to3D({ ...L.a, scale: L.a.scale * k, rotX: 0 });
+      gl.view.ringOpacity = b !== null ? 0 : 0.12;
       gsap.to(U.uHeat, { value: 1, duration: 1.5 });
-      if (!back) { hudCase.textContent = ch.dataset.case; setModel(false); }
+      if (b !== null) {
+        SB.morph = b; // B appears from nothing, so no need to morph through other shapes
+        gsap.fromTo(SB, { opacity: 0 }, { opacity: 1, duration: 1.6, ease: 'power2.out', overwrite: 'auto' });
+        toB({ ...L.b, scale: L.b.scale * k, rotX: 0 });
+      } else hideB();
+      labelText = { a: ch.dataset.labelA || '', b: ch.dataset.labelB || '' };
+      hudCase.textContent = ch.dataset.case;
     };
     ScrollTrigger.create({ trigger: ch, start: 'top 55%', end: 'bottom 55%', onEnter: enter, onEnterBack: enter });
 
@@ -194,15 +213,32 @@ if (gl) {
       .from(inner.querySelectorAll('li, .chips span'), { opacity: 0, x: -16, stagger: 0.05, duration: 0.6 }, 0.4);
   });
 
-  // back to the specimen for the hero (scrolling up) and the contact section
-  ScrollTrigger.create({
-    trigger: '.hero', start: 'top top', end: 'bottom 30%',
-    onEnterBack: () => { to3D({ morph: 0 }); hudCase.textContent = 'LC0 · Specimen'; },
-  });
+  // leaving the chapters: back to a single object
+  const single = (morph, hud, vars = {}) => () => {
+    hideB(); labelText.a = '';
+    to3D({ morph, ...vars });
+    gl.view.ringOpacity = 0.22;
+    hudCase.textContent = hud;
+  };
+  ScrollTrigger.create({ trigger: '.work', start: 'top 55%', onLeaveBack: single(0, 'LC0 · Specimen', { x: isMobile() ? 0 : 2.1, y: isMobile() ? 1.1 : 0, scale: 0.78 }) });
   ScrollTrigger.create({
     trigger: '.contact', start: 'top 60%',
-    onEnter: () => { to3D({ morph: 0, x: isMobile() ? 0 : 2.4, y: isMobile() ? -1.6 : -0.3, scale: 0.9, ringOpacity: 0.22 }); hudCase.textContent = 'LC5 · Your problem'; },
-    onLeaveBack: () => { to3D({ morph: 5, x: isMobile() ? 0 : -2.0, y: isMobile() ? 0.5 : 0 }); hudCase.textContent = 'LC4 · Biomechanics'; },
+    onEnter: single(0, 'LC5 · Your problem', { x: isMobile() ? 0 : 2.4, y: isMobile() ? -1.6 : -0.3, scale: 0.9 }),
+  });
+
+  // floating name tags under each 3D object
+  gsap.ticker.add(() => {
+    for (const k of ['a', 'b']) {
+      const el = labels[k];
+      const body = k === 'a' ? gl.A : gl.B;
+      const on = labelText[k] && body.state.opacity > 0.5;
+      el.classList.toggle('is-on', !!on);
+      if (!on) continue;
+      if (el.textContent !== labelText[k]) el.textContent = labelText[k];
+      const p = gl.screenPos(body);
+      const dy = (isMobile() ? 0.2 : 0.26) * innerHeight;
+      el.style.transform = `translate(${p.x}px, ${p.y + dy}px) translateX(-50%)`;
+    }
   });
 
   // HUD fades in after the hero, progress follows the whole page

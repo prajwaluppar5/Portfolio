@@ -20,14 +20,14 @@ No build step. All libraries and fonts are saved in `vendor/` and `fonts/`, so i
 | Section | Effect |
 |---|---|
 | Loader | Counts up "solver" steps with a stress-legend progress bar, then the curtain wipes up |
-| Hero | Huge split-letter name rises in; 32k-particle "specimen" assembles from an explosion |
+| Hero | Huge split-letter name rises in; 28k-particle "specimen" assembles from an explosion |
 | Marquee | Infinite ticker that speeds up and reverses with scroll velocity |
 | About | Words light up as you scroll; stats count up |
-| Experience | 4 pinned chapters. Particles morph **specimen → jet → race wheel → gear → molar** |
+| Experience | 4 chapters with the card centred. Ch. 1: **LCA Tejas** (left) + **AMCA** (right). Ch. 2: **KIT25 monocoque** (left) + **KIT25 car** (right). Ch. 3: gear. Ch. 4: molar |
 | Projects | Pinned horizontal scroll; each card has a procedural FE contour plot that deforms on hover |
 | Toolkit / Contact | Hover fills, magnetic buttons, Karlsruhe live clock, custom cursor with labels |
 
-The particles are coloured like an FEA result plot (blue → red, low → high stress), and the cursor acts as a moving load.
+The particles are coloured like an FEA result plot (blue → red, low → high stress). Moving the cursor scatters nearby particles; they re-form when it stops.
 
 ## Where the "3D assets" come from
 
@@ -51,8 +51,9 @@ fonts/              Big Shoulders Display, Inter Tight, JetBrains Mono (OFL, via
 
 All text is in `index.html`. Facts come from the Master CV in the KrazeBase vault. Push to `main` and the live site updates within a minute or two. Phone number and date
 of birth are deliberately left out because the site is public-facing. To add a 3D shape: write a builder in
-`shapes.js`, add it to `shapeBuilders` + `loadPoints`, then extend `pick()`/`pickS()` in the shader
-(currently max 5 shapes, indices 0–4).
+`shapes.js`, add it to `shapeBuilders`, `loadPoints` and `densityTrim`, then extend `p0..p6`, `pick()`
+and `pickS()` in the shader in `scene.js` (currently 7 shapes, indices 0–6). A chapter picks its shapes with
+`data-shape` (right/main) and `data-shape-b` (left partner) in `index.html`.
 
 ## Licences
 
