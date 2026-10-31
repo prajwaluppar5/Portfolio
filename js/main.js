@@ -165,7 +165,6 @@ function layouts() {
   const sc = Math.min(0.62, halfW * 0.17);
   return {
     hero: m ? { x: 0, y: 1.35, scale: 0.75 } : { x: Math.min(2.2, halfW * 0.55), y: 0.05, scale: 0.95 },
-    about: m ? { x: 0, y: 1.6, scale: 0.6 } : { x: Math.min(2.6, halfW * 0.66), y: 0, scale: 0.7 },
     pairA: m ? { x: 0.72, y: 1.9, scale: 0.36 } : { x: gx, y: 0, scale: sc },
     pairB: m ? { x: -0.72, y: 1.9, scale: 0.36 } : { x: -gx, y: 0, scale: sc },
     right: m ? { x: 0, y: 1.6, scale: 0.6 } : { x: gx, y: 0, scale: sc },
@@ -177,7 +176,6 @@ function layouts() {
 // keyframes: el = section, a/b = { shape, layout key, scale factor }, labels for pairs
 const KEYS = [
   { el: '.hero', a: ['brain', 'hero'], b: ['brain', 'hero'], hud: 'LC0 · Cortex', rings: 0.22, holdTop: 0, holdEnd: 0.12 },
-  { el: '.about', a: ['brain', 'about'], b: ['brain', 'about'], hud: 'LC0 · Cortex', rings: 0.18 },
   { el: '.chapter[data-key="ch1"]', a: ['amca', 'pairA', 0.82], b: ['tejas', 'pairB', 0.82], hud: 'LC1 · Aerospace', labels: ['AMCA', 'LCA Tejas'] },
   { el: '.chapter[data-key="ch2"]', a: ['car', 'pairA'], b: ['mono', 'pairB'], hud: 'LC2 · Motorsport', labels: ['KA-RaceIng FS car', 'CFRP monocoque'] },
   { el: '.chapter[data-key="ch3"]', a: ['gear', 'right'], b: ['gear', 'right'], hud: 'LC3 · Research', rings: 0.12 },
@@ -215,8 +213,15 @@ function targetP() {
   let i = 0;
   while (i < ranges.length - 1 && y > ranges[i].e) i++;
   if (i > 0 && y < ranges[i].s) {
-    const gapS = ranges[i - 1].e, gapE = ranges[i].s;
-    return i - 1 + Math.min(1, Math.max(0, (y - gapS) / Math.max(1, gapE - gapS)));
+    // the burst takes the first stretch of the gap and the re-forming the last;
+    // anything in between keeps the dust field open (t = 0.5), however long the gap
+    const gapS = ranges[i - 1].e, gap = Math.max(1, ranges[i].s - gapS);
+    const u = y - gapS, vh = innerHeight;
+    const L1 = Math.min(0.6 * vh, gap / 2), L2 = Math.min(0.8 * vh, gap / 2);
+    let t = 0.5;
+    if (u < L1) t = 0.5 * (u / L1);
+    else if (u > gap - L2) t = 0.5 + 0.5 * ((u - (gap - L2)) / L2);
+    return i - 1 + Math.min(1, Math.max(0, t));
   }
   return i;
 }
