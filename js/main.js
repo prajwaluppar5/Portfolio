@@ -189,9 +189,23 @@ function measure() {
     const el = $(k.el);
     const r = el.getBoundingClientRect();
     const top = r.top + scrollY, bottom = r.bottom + scrollY;
-    // stable while the section is the main thing on screen
-    // (holds are kept short so each transition, with its dust-field interlude, gets
-    // a good stretch of scroll)
+    const card = el.querySelector('.chapter__inner');
+    if (card) {
+      const ch = el.offsetHeight, cardH = card.offsetHeight;
+      if (!isMobile()) {
+        // the card is centred in its chapter and pins at 15vh: the model is fully
+        // formed the moment the card pins, and bursts when the card starts to leave
+        const stick = 0.15 * vh;
+        const s = top + (ch - cardH) / 2 - stick;
+        const e = bottom - cardH - stick;
+        return { s, e: Math.max(e, s + 1) };
+      }
+      // phones (no pinning): formed once the card's top reaches mid-screen,
+      // until the card has scrolled up past the models
+      const cardTop = card.getBoundingClientRect().top + scrollY;
+      const s = cardTop - 0.62 * vh;
+      return { s, e: Math.max(cardTop - 0.1 * vh, s + 1) };
+    }
     const s = k.holdTop !== undefined ? k.holdTop : top - vh * 0.25;
     const e = k.holdEnd !== undefined ? (k.holdEnd > 50 ? Infinity : top + vh * k.holdEnd) : bottom - vh * 0.95;
     return { s, e: Math.max(e, s + 1) };
@@ -217,7 +231,7 @@ function targetP() {
     // anything in between keeps the dust field open (t = 0.5), however long the gap
     const gapS = ranges[i - 1].e, gap = Math.max(1, ranges[i].s - gapS);
     const u = y - gapS, vh = innerHeight;
-    const L1 = Math.min(0.6 * vh, gap / 2), L2 = Math.min(0.8 * vh, gap / 2);
+    const L1 = Math.min(0.5 * vh, gap / 2), L2 = Math.min(0.5 * vh, gap / 2);
     let t = 0.5;
     if (u < L1) t = 0.5 * (u / L1);
     else if (u > gap - L2) t = 0.5 + 0.5 * ((u - (gap - L2)) / L2);
@@ -228,7 +242,7 @@ function targetP() {
 function update3D(dt = 1 / 60) {
   if (!ranges.length) return;
   P = targetP();
-  Ps += (P - Ps) * (1 - Math.exp(-dt * 5.5));
+  Ps += (P - Ps) * (1 - Math.exp(-dt * 7));
   if (Math.abs(P - Ps) < 1e-4) Ps = P;
   const L = layouts();
   const from = Math.min(KEYS.length - 1, Math.floor(Ps));
@@ -255,7 +269,7 @@ function update3D(dt = 1 / 60) {
     if (!show) continue;
     if (el.textContent !== settledKey.labels[n]) el.textContent = settledKey.labels[n];
     const p = gl.screenPos(body);
-    el.style.transform = `translate(${p.x}px, ${p.y + (isMobile() ? 0.2 : 0.26) * innerHeight}px) translateX(-50%)`;
+    el.style.transform = `translate(${p.x}px, ${p.y + (isMobile() ? 0.085 : 0.26) * innerHeight}px) translateX(-50%)`;
   }
 }
 

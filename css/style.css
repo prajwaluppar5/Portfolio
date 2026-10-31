@@ -170,7 +170,7 @@ section { position: relative; padding: 0 var(--gutter); }
   .nav { display: none; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   .toolkit__grid { grid-template-columns: 1fr; }
-  .chapter, .chapter--right { justify-content: center; align-items: flex-end; min-height: 160vh; }
+  .chapter, .chapter--right { justify-content: center; align-items: flex-end; min-height: 0; padding-top: 55vh; }
   /* phones: the shape gets a clear screen first, then the card scrolls past (no sticking) */
   .chapter__inner { position: relative; top: auto; margin-bottom: 8vh; }
   .hud { display: none; }
