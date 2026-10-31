@@ -18,12 +18,27 @@ if (!reduceMotion) {
   gsap.ticker.lagSmoothing(0);
   lenis.stop();
 }
+// where a link should land: experience chapters land where their card is pinned in
+// the centre (and the models have formed); "Experience" itself lands on the first card
+function linkTarget(el) {
+  const chapter = el.matches('.chapter') ? el : el.id === 'work' ? el.querySelector('.chapter') : null;
+  if (!chapter) return el;
+  const card = chapter.querySelector('.chapter__inner');
+  const top = chapter.getBoundingClientRect().top + scrollY;
+  if (innerWidth > 900) return top + (chapter.offsetHeight - card.offsetHeight) / 2 - 0.15 * innerHeight + 24;
+  // phones: card fully on screen, centred if it fits
+  const cardTop = card.getBoundingClientRect().top + scrollY;
+  return cardTop - Math.max(16, (innerHeight - card.offsetHeight) / 2);
+}
 $$('a[href^="#"]').forEach((a) =>
   a.addEventListener('click', (e) => {
     const target = $(a.getAttribute('href'));
     if (!target) return;
     e.preventDefault();
-    lenis ? lenis.scrollTo(target, { duration: 1.6 }) : target.scrollIntoView({ behavior: 'smooth' });
+    const dest = linkTarget(target);
+    if (lenis) lenis.scrollTo(dest, { duration: 1.6 });
+    else if (typeof dest === 'number') scrollTo({ top: dest, behavior: 'smooth' });
+    else dest.scrollIntoView({ behavior: 'smooth' });
   })
 );
 
