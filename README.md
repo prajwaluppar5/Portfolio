@@ -20,10 +20,10 @@ No build step. All libraries and fonts are saved in `vendor/` and `fonts/`, so i
 | Section | Effect |
 |---|---|
 | Loader | Counts up "solver" steps with a stress-legend progress bar, then the curtain wipes up |
-| Hero | Huge split-letter name rises in; 28k-particle "specimen" assembles from an explosion |
+| Hero | Name on the left, a particle brain on the right that assembles from an explosion |
 | Marquee | Infinite ticker that speeds up and reverses with scroll velocity |
 | About | Words light up as you scroll; stats count up |
-| Experience | 4 chapters with the card centred. Ch. 1: **LCA Tejas** (left) + **AMCA** (right). Ch. 2: **KIT25 monocoque** (left) + **KIT25 car** (right). Ch. 3: gear. Ch. 4: molar |
+| Experience | Cards centred. One scroll-scrubbed system: the brain splits into **LCA Tejas** (left) + **AMCA** (right), these re-form into the **CFRP monocoque** + **KA-RaceIng FS car**, then the halves join into one **gear**, then a **molar**, and back to the brain at Contact |
 | Projects | Pinned horizontal scroll; each card has a procedural FE contour plot that deforms on hover |
 | Toolkit / Contact | Hover fills, magnetic buttons, Karlsruhe live clock, custom cursor with labels |
 
@@ -52,8 +52,8 @@ fonts/              Big Shoulders Display, Inter Tight, JetBrains Mono (OFL, via
 All text is in `index.html`. Facts come from the Master CV in the KrazeBase vault. Push to `main` and the live site updates within a minute or two. Phone number and date
 of birth are deliberately left out because the site is public-facing. To add a 3D shape: write a builder in
 `shapes.js`, add it to `shapeBuilders`, `loadPoints` and `densityTrim`, then extend `p0..p6`, `pick()`
-and `pickS()` in the shader in `scene.js` (currently 7 shapes, indices 0–6). A chapter picks its shapes with
-`data-shape` (right/main) and `data-shape-b` (left partner) in `index.html`.
+and `pickS()` in the shader in `scene.js` (currently 7 shapes, indices 0–6). Which shapes appear where is the `KEYS` list in `js/main.js`
+(one keyframe per section; bodies A and B each own half the particles, so the same shape at the same spot reads as one model).
 
 ## Licences
 

@@ -35,9 +35,7 @@ try {
   console.warn('WebGL unavailable, continuing without 3D', err);
   $('#gl').remove();
 }
-const S = gl ? gl.A.state : {};
-const SB = gl ? gl.B.state : {};
-const U = gl ? gl.A.uniforms : null;
+
 
 /* ---------------- Text splitting ---------------- */
 const heroSplits = $$('.hero .split').map((el) => new SplitText(el, { type: 'words,chars' }));
@@ -83,7 +81,7 @@ function intro() {
     .set('#loader', { display: 'none' })
     .to(heroSplits.flatMap((s) => s.chars), { yPercent: 0, duration: 1.2, ease: 'expo.out', stagger: 0.035 }, '-=0.55')
     .from('.hero__meta, .hero__bottom, .header', { opacity: 0, y: 20, duration: 1, stagger: 0.1, ease: 'power3.out' }, '-=1');
-  if (U) tl.fromTo(U.uExplode, { value: 2.5 }, { value: 0, duration: 2.4, ease: 'expo.out' }, 0.5);
+  if (gl) tl.fromTo([gl.A.uniforms.uExplode, gl.B.uniforms.uExplode], { value: 2.5 }, { value: 0, duration: 2.4, ease: 'expo.out' }, 0.5);
 }
 
 /* ---------------- Clock (Karlsruhe) ---------------- */
@@ -151,60 +149,105 @@ $$('[data-count]').forEach((el) => {
 });
 gsap.from('.stat', { y: 60, opacity: 0, stagger: 0.08, duration: 1, ease: 'power3.out', scrollTrigger: { trigger: '.stats', start: 'top 85%' } });
 
-/* ---------------- 3D choreography ---------------- */
-// Body A = main object (right of the card in pairs); body B = partner on the left.
+/* ---------------- 3D choreography (scroll-scrubbed) ----------------
+   Two particle bodies, A and B, each own half the particles. When they share a
+   position and shape they read as one model; in pairs they split apart. Every
+   section is a keyframe with a "hold" scroll range; between holds both bodies fly
+   to the next layout while morphing, so every change uses the same motion. */
 const hudCase = $('#hudCase');
 const hudProg = $('#hudProg');
-const tw = (target, vars) => gl && gsap.to(target, { duration: 1.8, ease: 'power3.inOut', overwrite: 'auto', ...vars });
-const to3D = (vars) => tw(S, vars);
-const toB = (vars) => tw(SB, vars);
-const labels = { a: $('#labelA'), b: $('#labelB') };
-let labelText = { a: '', b: '' };
+const SHAPE = { brain: 0, amca: 1, tejas: 2, car: 3, mono: 4, gear: 5, molar: 6 };
 
-// where each body sits in a chapter: pairs flank the centred card, singles sit to one side
-function layout(pair, side = 1) {
-  if (isMobile()) {
-    return pair
-      ? { a: { x: 0.72, y: 1.9, scale: 0.36 }, b: { x: -0.72, y: 1.9, scale: 0.36 } }
-      : { a: { x: 0, y: 1.6, scale: 0.6 } };
-  }
-  // keep the objects in the gutters beside the 520px card at any desktop aspect ratio
+function layouts() {
+  const m = isMobile();
   const halfW = Math.tan((17.5 * Math.PI) / 180) * 7.2 * (innerWidth / innerHeight);
-  const x = Math.min(2.7, halfW * 0.68);
+  const gx = Math.min(2.7, halfW * 0.68); // gutter beside the centred card
   const sc = Math.min(0.62, halfW * 0.17);
-  return pair
-    ? { a: { x, y: 0, scale: sc }, b: { x: -x, y: 0, scale: sc } }
-    : { a: { x: x * side, y: 0, scale: sc } };
+  return {
+    hero: m ? { x: 0, y: 1.35, scale: 0.75 } : { x: Math.min(2.2, halfW * 0.55), y: 0.05, scale: 0.95 },
+    about: m ? { x: 0, y: 1.6, scale: 0.6 } : { x: Math.min(2.6, halfW * 0.66), y: 0, scale: 0.7 },
+    pairA: m ? { x: 0.72, y: 1.9, scale: 0.36 } : { x: gx, y: 0, scale: sc },
+    pairB: m ? { x: -0.72, y: 1.9, scale: 0.36 } : { x: -gx, y: 0, scale: sc },
+    right: m ? { x: 0, y: 1.6, scale: 0.6 } : { x: gx, y: 0, scale: sc },
+    left: m ? { x: 0, y: 1.6, scale: 0.6 } : { x: -gx, y: 0, scale: sc },
+    contact: m ? { x: 0, y: -1.6, scale: 0.85 } : { x: Math.min(2.4, halfW * 0.6), y: -0.3, scale: 0.9 },
+  };
 }
-function hideB() { toB({ opacity: 0, scale: 0.3, duration: 1 }); labelText.b = ''; }
+
+// keyframes: el = section, a/b = { shape, layout key, scale factor }, labels for pairs
+const KEYS = [
+  { el: '.hero', a: ['brain', 'hero'], b: ['brain', 'hero'], hud: 'LC0 · Cortex', rings: 0.22, holdTop: 0, holdEnd: 0.12 },
+  { el: '.about', a: ['brain', 'about'], b: ['brain', 'about'], hud: 'LC0 · Cortex', rings: 0.18 },
+  { el: '.chapter[data-key="ch1"]', a: ['amca', 'pairA', 0.82], b: ['tejas', 'pairB', 0.82], hud: 'LC1 · Aerospace', labels: ['AMCA', 'LCA Tejas'] },
+  { el: '.chapter[data-key="ch2"]', a: ['car', 'pairA'], b: ['mono', 'pairB'], hud: 'LC2 · Motorsport', labels: ['KA-RaceIng FS car', 'CFRP monocoque'] },
+  { el: '.chapter[data-key="ch3"]', a: ['gear', 'right'], b: ['gear', 'right'], hud: 'LC3 · Research', rings: 0.12 },
+  { el: '.chapter[data-key="ch4"]', a: ['molar', 'left'], b: ['molar', 'left'], hud: 'LC4 · Biomechanics', rings: 0.12 },
+  { el: '.contact', a: ['brain', 'contact'], b: ['brain', 'contact'], hud: 'LC5 · Your problem', rings: 0.22, holdEnd: 99 },
+];
+let ranges = [];
+function measure() {
+  const vh = innerHeight;
+  ranges = KEYS.map((k) => {
+    const el = $(k.el);
+    const r = el.getBoundingClientRect();
+    const top = r.top + scrollY, bottom = r.bottom + scrollY;
+    // stable while the section is the main thing on screen
+    const s = k.holdTop !== undefined ? k.holdTop : top - vh * 0.35;
+    const e = k.holdEnd !== undefined ? (k.holdEnd > 50 ? Infinity : top + vh * k.holdEnd) : bottom - vh * 0.75;
+    return { s, e: Math.max(e, s + 1) };
+  });
+}
+const ease = (t) => t * t * (3 - 2 * t);
+const labels = { a: $('#labelA'), b: $('#labelB') };
+
+function pose(k, which, L) {
+  const [shape, lay, f = 1] = k[which];
+  const p = L[lay];
+  return { shape: SHAPE[shape], x: p.x, y: p.y, scale: p.scale * f };
+}
+function update3D() {
+  if (!ranges.length) return;
+  const y = scrollY, L = layouts();
+  // find the segment: inside a hold → that keyframe; between holds → transition
+  let i = 0;
+  while (i < ranges.length - 1 && y > ranges[i].e) i++;
+  let from = i, to = i, t = 0;
+  if (i > 0 && y < ranges[i].s) {
+    from = i - 1;
+    const gapS = ranges[i - 1].e, gapE = ranges[i].s;
+    t = ease(Math.min(1, Math.max(0, (y - gapS) / Math.max(1, gapE - gapS))));
+  }
+  const kf = KEYS[from], kt = KEYS[to];
+  for (const which of ['a', 'b']) {
+    const st = (which === 'a' ? gl.A : gl.B).state;
+    const p0 = pose(kf, which, L), p1 = pose(kt, which, L);
+    st.from = p0.shape; st.to = p1.shape; st.t = t;
+    st.x = p0.x + (p1.x - p0.x) * t;
+    st.y = p0.y + (p1.y - p0.y) * t;
+    st.scale = p0.scale + (p1.scale - p0.scale) * t;
+  }
+  gl.view.ringOpacity = (kf.rings || 0) * (1 - t) + (kt.rings || 0) * t;
+  const settled = t === 0 || t === 1;
+  const k = t < 0.5 ? kf : kt;
+  hudCase.textContent = k.hud;
+  // name tags only while a pair is formed
+  const show = settled && kt.labels && (t === 1 || from === to);
+  for (const [n, el, body] of [[0, labels.a, gl.A], [1, labels.b, gl.B]]) {
+    el.classList.toggle('is-on', !!show);
+    if (!show) continue;
+    if (el.textContent !== kt.labels[n]) el.textContent = kt.labels[n];
+    const p = gl.screenPos(body);
+    el.style.transform = `translate(${p.x}px, ${p.y + (isMobile() ? 0.2 : 0.26) * innerHeight}px) translateX(-50%)`;
+  }
+}
 
 if (gl) {
-  // hero → about: object slides right and shrinks while the type takes over
-  gsap.timeline({ scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1 } })
-    .to(S, { x: () => (isMobile() ? 0 : 2.1), y: () => (isMobile() ? 1.1 : 0), scale: 0.78, rotX: 0.4, ease: 'none' }, 0)
-    .to(U.uHeat, { value: 0.6, ease: 'none' }, 0);
+  ScrollTrigger.addEventListener('refresh', measure);
+  addEventListener('resize', measure);
+  measure();
+  gsap.ticker.add(update3D);
 
   $$('.chapter').forEach((ch) => {
-    const a = +ch.dataset.shape;
-    const b = ch.dataset.shapeB !== undefined ? +ch.dataset.shapeB : null;
-    const side = ch.dataset.side === 'left' ? -1 : 1;
-    const k = +(ch.dataset.scale || 1);
-    const enter = () => {
-      const L = layout(b !== null, side);
-      to3D({ morph: a, duration: 2.2 });
-      to3D({ ...L.a, scale: L.a.scale * k, rotX: 0 });
-      gl.view.ringOpacity = b !== null ? 0 : 0.12;
-      gsap.to(U.uHeat, { value: 1, duration: 1.5 });
-      if (b !== null) {
-        SB.morph = b; // B appears from nothing, so no need to morph through other shapes
-        gsap.fromTo(SB, { opacity: 0 }, { opacity: 1, duration: 1.6, ease: 'power2.out', overwrite: 'auto' });
-        toB({ ...L.b, scale: L.b.scale * k, rotX: 0 });
-      } else hideB();
-      labelText = { a: ch.dataset.labelA || '', b: ch.dataset.labelB || '' };
-      hudCase.textContent = ch.dataset.case;
-    };
-    ScrollTrigger.create({ trigger: ch, start: 'top 55%', end: 'bottom 55%', onEnter: enter, onEnterBack: enter });
-
     const inner = ch.querySelector('.chapter__inner');
     const title = new SplitText(ch.querySelector('.chapter__title'), { type: 'words,chars' });
     gsap.timeline({ scrollTrigger: { trigger: ch, start: 'top 65%' } })
@@ -213,35 +256,6 @@ if (gl) {
       .from(inner.querySelectorAll('li, .chips span'), { opacity: 0, x: -16, stagger: 0.05, duration: 0.6 }, 0.4);
   });
 
-  // leaving the chapters: back to a single object
-  const single = (morph, hud, vars = {}) => () => {
-    hideB(); labelText.a = '';
-    to3D({ morph, ...vars });
-    gl.view.ringOpacity = 0.22;
-    hudCase.textContent = hud;
-  };
-  ScrollTrigger.create({ trigger: '.work', start: 'top 55%', onLeaveBack: single(0, 'LC0 · Specimen', { x: isMobile() ? 0 : 2.1, y: isMobile() ? 1.1 : 0, scale: 0.78 }) });
-  ScrollTrigger.create({
-    trigger: '.contact', start: 'top 60%',
-    onEnter: single(0, 'LC5 · Your problem', { x: isMobile() ? 0 : 2.4, y: isMobile() ? -1.6 : -0.3, scale: 0.9 }),
-  });
-
-  // floating name tags under each 3D object
-  gsap.ticker.add(() => {
-    for (const k of ['a', 'b']) {
-      const el = labels[k];
-      const body = k === 'a' ? gl.A : gl.B;
-      const on = labelText[k] && body.state.opacity > 0.5;
-      el.classList.toggle('is-on', !!on);
-      if (!on) continue;
-      if (el.textContent !== labelText[k]) el.textContent = labelText[k];
-      const p = gl.screenPos(body);
-      const dy = (isMobile() ? 0.2 : 0.26) * innerHeight;
-      el.style.transform = `translate(${p.x}px, ${p.y + dy}px) translateX(-50%)`;
-    }
-  });
-
-  // HUD fades in after the hero, progress follows the whole page
   gsap.to('.hud', { opacity: 1, scrollTrigger: { trigger: '.about', start: 'top 80%', end: 'top 40%', scrub: true } });
   ScrollTrigger.create({ start: 0, end: 'max', onUpdate: (s) => (hudProg.textContent = String(Math.round(s.progress * 100)).padStart(3, '0') + '%') });
 }

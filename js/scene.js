@@ -17,7 +17,8 @@ const vertexShader = /* glsl */ `
   attribute vec3 p0; attribute vec3 p1; attribute vec3 p2; attribute vec3 p3;
   attribute vec3 p4; attribute vec3 p5; attribute vec3 p6;
   attribute vec4 sA; attribute vec3 sB; attribute float aRand;
-  uniform float uMorph, uTime, uSize, uPixelRatio, uHeat, uExplode, uOpacity;
+  uniform float uFrom, uTo, uT, uTime, uSize, uPixelRatio, uHeat, uExplode, uOpacity, uHalf;
+  attribute float aHalf;
   uniform float uDens[${N}];
   uniform vec3 uMouse; uniform vec3 uMouseVel; uniform float uMouseStrength;
   varying float vStress; varying float vAlpha;
@@ -31,9 +32,8 @@ const vertexShader = /* glsl */ `
   vec3 hash3(float n){ return fract(sin(vec3(n, n + 1.7, n + 3.1)) * vec3(43758.5453, 22578.145, 19642.349)) - .5; }
 
   void main(){
-    float i0 = clamp(floor(uMorph), 0., ${N - 1}.);
-    float i1 = min(i0 + 1., ${N - 1}.);
-    float f = uMorph - i0;
+    // morph from shape uFrom to shape uTo by uT (any pair of shapes, same motion everywhere)
+    float i0 = uFrom, i1 = uTo, f = uT;
     // staggered per-particle transition so the shape dissolves instead of sliding
     float t = smoothstep(aRand * .45, aRand * .45 + .55, f);
     t = t * t * (3. - 2. * t);
@@ -62,7 +62,9 @@ const vertexShader = /* glsl */ `
     // show only a share of the particles so every shape has a similar density
     float dens = mix(uDens[int(i0)], uDens[int(i1)], t);
     float keep = smoothstep(dens + .04, dens - .04, fract(aRand * 7.31));
-    vAlpha = (.55 + .45 * aRand) * uOpacity * keep;
+    // each body owns one half of the particles; together they form one full model
+    float mine = uHalf < .5 ? 1. : (uHalf < 1.5 ? 1. - aHalf : aHalf);
+    vAlpha = (.55 + .45 * aRand) * uOpacity * keep * mine;
 
     vec4 mv = viewMatrix * world;
     gl_Position = projectionMatrix * mv;
@@ -113,7 +115,7 @@ export function createScene(canvas, { lowPower = false } = {}) {
   camera.position.set(0, 0, 7.2);
 
   // ---- shared particle geometry: every shape sampled to the same count ----
-  const COUNT = lowPower ? 13000 : 28000;
+  const COUNT = lowPower ? 22000 : 46000; // split between two bodies
   const geo = new THREE.BufferGeometry();
   const tmp = new THREE.Vector3();
   const stress = shapeBuilders.map(() => new Float32Array(COUNT));
@@ -140,18 +142,21 @@ export function createScene(canvas, { lowPower = false } = {}) {
   const sA = new Float32Array(COUNT * 4);
   const sB = new Float32Array(COUNT * 3);
   const rnd = new Float32Array(COUNT);
+  const half = new Float32Array(COUNT);
   for (let i = 0; i < COUNT; i++) {
     sA.set([stress[0][i], stress[1][i], stress[2][i], stress[3][i]], i * 4);
     sB.set([stress[4][i], stress[5][i], stress[6][i]], i * 3);
     rnd[i] = Math.random();
+    half[i] = i % 2;
   }
   geo.setAttribute('sA', new THREE.BufferAttribute(sA, 4));
   geo.setAttribute('sB', new THREE.BufferAttribute(sB, 3));
   geo.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
+  geo.setAttribute('aHalf', new THREE.BufferAttribute(half, 1));
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 5);
-  // share of particles shown per shape, relative to the hero specimen's surface area
+  // share of particles shown per shape, relative to a reference surface area of 17 units²
   // (flat shapes such as wings get an extra trim: top and bottom skins overlap on screen)
-  const dens = area.map((a, i) => Math.min(1, Math.max(0.16, (a / area[0]) * 1.1)) * (densityTrim[i] ?? 1));
+  const dens = area.map((a, i) => Math.min(1, Math.max(0.16, (a / 17) * 1.1)) * (densityTrim[i] ?? 1));
 
   // shared cursor uniforms
   const mouse = {
@@ -163,7 +168,8 @@ export function createScene(canvas, { lowPower = false } = {}) {
 
   function makeBody(initial) {
     const uniforms = {
-      uMorph: { value: initial.morph }, uTime: time, uSize: { value: lowPower ? 20 : 17 },
+      uFrom: { value: 0 }, uTo: { value: 0 }, uT: { value: 0 }, uHalf: { value: initial.half },
+      uTime: time, uSize: { value: lowPower ? 20 : 17 },
       uPixelRatio: { value: pr }, uHeat: { value: 1 }, uExplode: { value: initial.explode ?? 0 },
       uOpacity: { value: initial.opacity }, uDens: { value: dens }, ...mouse,
     };
@@ -176,13 +182,12 @@ export function createScene(canvas, { lowPower = false } = {}) {
     spin.add(points);
     rig.add(spin);
     scene.add(rig);
-    const state = { morph: initial.morph, x: 0, y: 0, scale: 1, rotY: 0, rotX: 0, opacity: initial.opacity, spinDir: initial.spinDir || 1 };
+    const state = { from: 0, to: 0, t: 0, x: 0, y: 0, scale: 1, rotY: 0, rotX: 0, opacity: initial.opacity };
     return { uniforms, rig, spin, points, state };
   }
-  const A = makeBody({ morph: 0, opacity: 1, explode: 2.5 });
-  const B = makeBody({ morph: 2, opacity: 0, spinDir: -1 });
-  B.state.x = -2.5; B.state.scale = 0.6;
-  B.points.visible = false;
+  // A and B each own half of the particles; overlapping, they read as one model
+  const A = makeBody({ opacity: 1, explode: 2.5, half: 1 });
+  const B = makeBody({ opacity: 1, explode: 2.5, half: 2 });
 
   // ---- engineering decor around body A: gimbal rings + dial ticks, plus dust ----
   const ringMat = new THREE.LineBasicMaterial({ color: 0x8a8f86, transparent: true, opacity: 0.22 });
@@ -257,18 +262,22 @@ export function createScene(canvas, { lowPower = false } = {}) {
   let running = true;
   function applyBody(b, dt) {
     const s = b.state;
-    b.uniforms.uMorph.value = s.morph;
+    b.uniforms.uFrom.value = s.from;
+    b.uniforms.uTo.value = s.to;
+    b.uniforms.uT.value = s.t;
     b.uniforms.uOpacity.value = s.opacity;
     b.points.visible = s.opacity > 0.01;
     b.rig.position.set(s.x, s.y, 0);
     b.rig.scale.setScalar(s.scale);
-    b.spin.rotation.y += dt * 0.12 * s.spinDir;
+    b.spin.rotation.y = spinAngle; // one shared pace, so joined halves stay aligned
     b.spin.rotation.x = s.rotX + look.y * 0.15;
     b.rig.rotation.y = s.rotY + look.x * 0.25;
   }
+  let spinAngle = 0;
   function frame() {
     if (!running) return;
     const dt = Math.min(clock.getDelta(), 0.05);
+    spinAngle += dt * 0.12;
     time.value = clock.elapsedTime;
     if (ndc.x < 5) look.lerp(ndc, 0.04);
     applyBody(A, dt);

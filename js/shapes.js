@@ -17,20 +17,47 @@ function merge(list) {
   );
 }
 
-// 1. Hero — a lumpy "specimen" blob (sphere with layered displacement)
-export function specimen() {
-  const g = new THREE.IcosahedronGeometry(1.15, 40);
-  const p = g.attributes.position;
+// 1. Hero — a procedural brain: two folded hemispheres, cerebellum and brain stem
+export function brain() {
+  const parts = [];
   const v = new THREE.Vector3();
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i).normalize();
-    const d =
-      1 +
-      0.12 * Math.sin(v.x * 3.1 + v.y * 2.0) * Math.cos(v.z * 2.7) +
-      0.05 * Math.sin(v.y * 7.0 + v.z * 5.0);
-    v.multiplyScalar(1.15 * d);
-    p.setXYZ(i, v.x, v.y, v.z);
+  for (const side of [1, -1]) {
+    const g = new THREE.SphereGeometry(1, 120, 90);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      // gyri and sulci: ridges from interfering waves, sharpened with abs()
+      const fold = Math.abs(Math.sin(v.x * 7 + Math.sin(v.y * 6) * 1.6 + Math.cos(v.z * 5) * 1.2))
+        * Math.abs(Math.sin(v.z * 6 + Math.sin(v.x * 5) * 1.4));
+      let r = 1 + 0.13 * fold;
+      // flatten the medial face so the two hemispheres meet at a fissure
+      v.multiplyScalar(r);
+      // hemisphere: long front-to-back, taller at the back, flat inner (medial) face
+      let x = v.x * 0.5;
+      if (x * side < 0) x *= 0.35;
+      const yy = v.y * (0.62 + 0.08 * v.z) + 0.12;
+      const zz = v.z * 0.98 + (v.y < 0 ? 0.08 * v.y : 0);
+      p.setXYZ(i, x + side * 0.2, yy, zz);
+    }
+    parts.push(g);
   }
+  // cerebellum: fine horizontal folds, tucked under the back
+  const cb = new THREE.SphereGeometry(1, 80, 50);
+  const q = cb.attributes.position;
+  for (let i = 0; i < q.count; i++) {
+    v.fromBufferAttribute(q, i);
+    v.multiplyScalar(1 + 0.05 * Math.abs(Math.sin(v.y * 22)));
+    q.setXYZ(i, v.x * 0.5, v.y * 0.24 - 0.42, v.z * 0.32 - 0.62);
+  }
+  parts.push(cb);
+  const stem = new THREE.CylinderGeometry(0.13, 0.17, 0.7, 24, 6, true);
+  stem.rotateX(0.3);
+  stem.translate(0, -0.66, -0.32);
+  parts.push(stem);
+  const g = merge(parts);
+  g.scale(1.15, 1.15, 1.15);
+  g.rotateY(-1.05);
+  g.rotateX(0.15);
   return g;
 }
 
@@ -217,17 +244,19 @@ const TUB = [
 ];
 const bodyStyle = (s) => ({ p: 0.85, pb: 0.3, q: 0.7, ...s });
 export function monocoque() {
-  // the tub alone: front bulkhead at the nose-cone joint, open cockpit, roll hoops
-  const parts = [loft([NOSE[4], ...TUB].map(bodyStyle), 56)];
-  const bh = new THREE.CircleGeometry(1, 32); bh.scale(0.2, 0.16, 1); bh.translate(0, 0.24, 0.84); parts.push(bh);
-  const rim = new THREE.TorusGeometry(1, 0.012, 6, 64);
-  rim.rotateX(Math.PI / 2); rim.scale(0.21, 1, 0.37); rim.translate(0, 0.42, -0.01); parts.push(rim);
-  parts.push(...hoop(0.36, 0.4, 0.18, 0.2), ...hoop(-0.42, 0.32, 0.2, 0.72));
-  parts.push(rod([0.14, 0.98, -0.42], [0.18, 0.36, -0.9]), rod([-0.14, 0.98, -0.42], [-0.18, 0.36, -0.9]));
-  for (const s of [1, -1]) for (const z of [0.7, 0.5, -0.3]) for (const y of [0.13, 0.33]) {
-    const ins = new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12); ins.rotateZ(Math.PI / 2); ins.translate(s * 0.22, y, z); parts.push(ins);
-  }
-  return carPose(merge(parts), 1.15);
+  // the car's own tub (same sections, scale and pose as fsCar) with its roll hoops,
+  // bracing and headrest; the wings, sidepods, wheels and engine bay are removed
+  const parts = [loft([...NOSE, ...TUB].map(bodyStyle), 56)];
+  parts.push(...tubHardware());
+  return carPose(merge(parts), 0.98);
+}
+function tubHardware() {
+  const out = [...hoop(0.36, 0.4, 0.18, 0.2), ...hoop(-0.42, 0.32, 0.2, 0.72)];
+  out.push(rod([0.14, 0.98, -0.42], [0.18, 0.36, -0.9]), rod([-0.14, 0.98, -0.42], [-0.18, 0.36, -0.9]));
+  const head = new THREE.BoxGeometry(0.2, 0.2, 0.06, 4, 4, 1);
+  head.translate(0, 0.55, -0.36);
+  out.push(head);
+  return out;
 }
 function tyre(x, z, r = 0.215, w = 0.2) {
   // rounded tyre section revolved, plus a three-spoke carbon rim
@@ -286,10 +315,8 @@ export function fsCar() {
   }
   // nose antenna and front push-rod/steering details
   parts.push(rod([0, 0.46, 0.7], [0, 0.64, 0.72], 0.006));
-  // roll hoops: small front hoop, tall main hoop braced backwards; headrest
-  parts.push(...hoop(0.36, 0.4, 0.18, 0.2), ...hoop(-0.42, 0.32, 0.2, 0.72));
-  parts.push(rod([0.14, 0.98, -0.42], [0.18, 0.36, -0.9]), rod([-0.14, 0.98, -0.42], [-0.18, 0.36, -0.9]));
-  const head = new THREE.BoxGeometry(0.2, 0.2, 0.06, 4, 4, 1); head.translate(0, 0.55, -0.36); parts.push(head);
+  // roll hoops, bracing and headrest (shared with the monocoque model)
+  parts.push(...tubHardware());
   // rear wing: big four-element stack between tall rectangular endplates
   parts.push(...element(0, 0.56, -0.86, 0.36, 0.8, 0.12));
   parts.push(...element(0, 0.56, -1.1, 0.22, 0.93, 0.55));
@@ -404,17 +431,17 @@ export function gear() {
 // Each shape gets one or more load points. Each shape gets a pseudo "stress" field: hot near a load point, cool far away,
 // with a little noise so the contour looks like a real result plot.
 export const loadPoints = [
-  new THREE.Vector3(0.6, 0.9, 0.4),   // specimen: point load top-right
+  new THREE.Vector3(0.5, 0.75, 0.5),  // brain: hot spot on the upper cortex
   // aircraft: wing-root bending on both sides (coordinates in the showcase pose)
   [shown(0.3, 0, -0.25), shown(-0.3, 0, -0.25)],   // AMCA
   [shown(0.3, 0, -0.35), shown(-0.3, 0, -0.35)],   // Tejas
   // car: front-wing mounts + main hoop; monocoque: main-hoop / tub junction and front bulkhead
   [carPt(0, 0.1, 1.3, 0.98), carPt(0, 0.95, -1.0, 0.98)],
-  [carPt(0, 0.4, -0.42, 1.15), carPt(0, 0.22, 0.88, 1.15)],
+  [carPt(0, 0.4, -0.42, 0.98), carPt(0, 0.22, 0.84, 0.98)],
   new THREE.Vector3(1.1, 0.2, 0),     // gear: tooth in mesh
   new THREE.Vector3(0.3, 0.9, 0.2),   // molar: occlusal cusp
 ];
 
-export const shapeBuilders = [specimen, amca, tejas, fsCar, monocoque, gear, molar];
+export const shapeBuilders = [brain, amca, tejas, fsCar, monocoque, gear, molar];
 // extra particle thinning for flat shapes (wings, plates) whose skins overlap on screen
 export const densityTrim = [1, 0.55, 0.6, 0.95, 1, 1, 1];
