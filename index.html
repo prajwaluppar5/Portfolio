@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prajwal Uppar — Stress Engineer</title>
+  <meta name="description" content="Prajwal Uppar — Stress Engineer. Finite element analysis, structural optimisation and simulation for aerospace, motorsport and biomechanics." />
+  <meta name="theme-color" content="#0b0c0b" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0c0b'/%3E%3Cpath d='M8 24V8h7a5 5 0 010 10H8' fill='none' stroke='%23c8ff2e' stroke-width='3'/%3E%3C/svg%3E" />
+  <link rel="preload" href="fonts/big-shoulders-display-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="vendor/lenis.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body class="is-loading">
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ===== Loader ===== -->
+  <div class="loader" id="loader" aria-live="polite">
+    <div class="loader__top mono">
+      <span>PU / Portfolio</span><span>Solver v.2026</span>
+    </div>
+    <div class="loader__log mono" id="loaderLog">
+      <p>&gt; Importing geometry…</p>
+    </div>
+    <div class="loader__count display" id="loaderCount">000</div>
+    <div class="loader__bar"><span id="loaderBar"></span></div>
+    <div class="loader__legend mono"><span>min</span><span>σ<sub>v</sub> [MPa]</span><span>max</span></div>
+  </div>
+
+  <!-- ===== Cursor ===== -->
+  <div class="cursor" aria-hidden="true"><div class="cursor__dot"></div><div class="cursor__ring"><span class="cursor__label mono"></span></div></div>
+
+  <!-- ===== Header ===== -->
+  <header class="header">
+    <a href="#top" class="logo display" data-cursor="Top">PU<span>.</span></a>
+    <nav class="nav mono">
+      <a href="#about" data-cursor="Go">About</a>
+      <a href="#work" data-cursor="Go">Experience</a>
+      <a href="#projects" data-cursor="Go">Projects</a>
+      <a href="#contact" data-cursor="Go">Contact</a>
+    </nav>
+    <div class="header__meta mono"><span class="pulse"></span><span id="clock">--:--</span> KA, DE</div>
+  </header>
+
+  <!-- ===== Scroll HUD ===== -->
+  <aside class="hud mono" aria-hidden="true">
+    <div class="hud__row"><span>Load case</span><b id="hudCase">LC0 · Specimen</b></div>
+    <div class="hud__row"><span>Progress</span><b id="hudProg">000%</b></div>
+    <div class="hud__legend"><i></i><span>low</span><span>high</span></div>
+  </aside>
+
+  <main id="smooth">
+    <!-- ===== Hero ===== -->
+    <section class="hero" id="top" data-shape="0">
+      <div class="hero__meta mono">
+        <span>(01)</span>
+        <span>Karlsruhe, Germany<br />49.0069° N, 8.4037° E</span>
+      </div>
+      <h1 class="hero__title display" aria-label="Prajwal Uppar">
+        <span class="line"><span class="split">Prajwal</span></span>
+        <span class="line line--r"><span class="split">Uppar</span></span>
+      </h1>
+      <div class="hero__bottom">
+        <p class="hero__role"><span class="mono tag">Stress Engineer</span><br />I find where structures break <em>before</em> they do: finite elements, optimisation and simulation for aircraft, race cars and the human body.</p>
+        <div class="hero__scroll mono" data-cursor="Scroll"><span>Scroll to apply load</span><i></i></div>
+      </div>
+    </section>
+
+    <!-- ===== Marquee ===== -->
+    <div class="marquee display" aria-hidden="true">
+      <div class="marquee__track">
+        <span>Finite Element Analysis <b>✦</b> Buckling <b>✦</b> Topology Optimisation <b>✦</b> Composites <b>✦</b> Multiphysics <b>✦</b> Fracture Mechanics <b>✦</b> </span>
+        <span>Finite Element Analysis <b>✦</b> Buckling <b>✦</b> Topology Optimisation <b>✦</b> Composites <b>✦</b> Multiphysics <b>✦</b> Fracture Mechanics <b>✦</b> </span>
+      </div>
+    </div>
+
+    <!-- ===== About ===== -->
+    <section class="about" id="about">
+      <div class="section-label mono"><span>(02)</span><span>About</span></div>
+      <p class="about__text reveal-words">
+        Mechanical engineer with three-plus years of finite element work. I've meshed fighter-jet doors and fuel tanks, put a Formula Student monocoque on a diet, and I'm now modelling the stresses inside a human molar from a CT scan at KIT.
+      </p>
+      <div class="stats">
+        <div class="stat"><span class="stat__num display" data-count="3" data-suffix="+">0</span><span class="stat__label mono">Years in FEA &amp; CAE</span></div>
+        <div class="stat"><span class="stat__num display" data-count="15" data-suffix="%">0</span><span class="stat__label mono">Bulkhead mass saved with SOL 200</span></div>
+        <div class="stat"><span class="stat__num display" data-count="14" data-suffix="%">0</span><span class="stat__label mono">Lighter monocoque</span></div>
+        <div class="stat"><span class="stat__num display" data-count="15" data-prefix="+" data-suffix="%">0</span><span class="stat__label mono">Monocoque torsional stiffness</span></div>
+      </div>
+    </section>
+
+    <!-- ===== Experience chapters (pinned, 3D morphs per chapter) ===== -->
+    <section class="work" id="work">
+      <div class="section-label mono"><span>(03)</span><span>Experience</span></div>
+
+      <article class="chapter" data-shape="1" data-case="LC1 · Aerospace">
+        <div class="chapter__inner">
+          <div class="chapter__index display">01</div>
+          <div class="chapter__head mono"><span>Dec 2021 — Aug 2023</span><span>Bangalore, IN</span></div>
+          <h2 class="chapter__title display split-lines">Stress Engineer</h2>
+          <p class="chapter__org">Aeronautical Development Agency (DRDO)</p>
+          <ul class="chapter__list">
+            <li>Built finite element models in HyperMesh for aircraft doors, bulkheads and fuel tanks.</li>
+            <li>Linear static, non-linear, buckling and transient runs in MSC NASTRAN and Abaqus to MIL-STD requirements.</li>
+            <li>SOL 200 bulkhead and frame optimisation: <b>−15% mass</b>.</li>
+            <li>Bolt-load and buckling hand checks with Niu and Bruhn methods; door and store-release dynamics in MSC Adams.</li>
+          </ul>
+          <div class="chips mono"><span>NASTRAN</span><span>Abaqus</span><span>HyperMesh</span><span>Patran</span><span>Adams</span></div>
+        </div>
+      </article>
+
+      <article class="chapter chapter--right" data-shape="2" data-case="LC2 · Motorsport">
+        <div class="chapter__inner">
+          <div class="chapter__index display">02</div>
+          <div class="chapter__head mono"><span>Oct 2024 — Oct 2025</span><span>Karlsruhe, DE</span></div>
+          <h2 class="chapter__title display split-lines">Simulation Engineer</h2>
+          <p class="chapter__org">KA-RaceIng e.V. — Formula Student</p>
+          <ul class="chapter__list">
+            <li>Composite monocoque optimisation in OptiStruct (free-size, size, shuffle, topology): <b>−14% mass, +15% torsional stiffness</b>.</li>
+            <li>1D FE model of the hydrogen-tank support cage, linear and non-linear static; lighter clamp design.</li>
+            <li>E-motor electromagnetics in Ansys Maxwell, coupled to thermal and structural analysis.</li>
+            <li>SES layups, ply book, ply cutting and oven curing.</li>
+          </ul>
+          <div class="chips mono"><span>OptiStruct</span><span>Ansys Maxwell</span><span>Composites</span><span>Multiphysics</span></div>
+        </div>
+      </article>
+
+      <article class="chapter" data-shape="3" data-case="LC3 · Research">
+        <div class="chapter__inner">
+          <div class="chapter__index display">03</div>
+          <div class="chapter__head mono"><span>Aug 2025 — Now</span><span>KIT, Karlsruhe</span></div>
+          <h2 class="chapter__title display split-lines">Research Assistant</h2>
+          <p class="chapter__org">KIT — IAM-MMI &amp; Mobima</p>
+          <ul class="chapter__list">
+            <li>Supervised a student team on gearbox-housing topology optimisation, then built and tested it on a universal testing machine.</li>
+            <li>Benchmarked bolt-modelling approaches (RBE2 vs RBE3, 1D beams with pretension) against test data.</li>
+            <li>SMART crack-growth analysis in Ansys with APDL scripts to extract crack-front nodes.</li>
+            <li>Virtual strain gauges and simulation-to-test correlation for 3D-printed parts.</li>
+          </ul>
+          <div class="chips mono"><span>Ansys</span><span>APDL</span><span>HyperMesh</span><span>SolidWorks CAD</span></div>
+        </div>
+      </article>
+
+      <article class="chapter chapter--right" data-shape="4" data-case="LC4 · Biomechanics">
+        <div class="chapter__inner">
+          <div class="chapter__index display">04</div>
+          <div class="chapter__head mono"><span>Jun — Dec 2026</span><span>KIT, IAM-ZM</span></div>
+          <h2 class="chapter__title display split-lines">Master Thesis</h2>
+          <p class="chapter__org">Finite Element Analysis of a Molar Tooth Based on a CT Scan</p>
+          <ul class="chapter__list">
+            <li>CT-derived human molar meshed in HyperMesh, solved in Ansys Mechanical.</li>
+            <li>Enamel, dentin and pulp models, plus a variant with bonded fissure sealants.</li>
+            <li>Seven occlusal load cases at 150, 350 and 600 N, judged on enamel tensile stress.</li>
+          </ul>
+          <div class="chips mono"><span>CT → FE</span><span>Ansys Mechanical</span><span>Biomechanics</span></div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ===== Projects: horizontal scroll ===== -->
+    <section class="projects" id="projects">
+      <div class="projects__pin">
+        <div class="projects__head">
+          <div class="section-label mono"><span>(04)</span><span>Selected projects</span></div>
+          <h2 class="display projects__title">Load cases<br /><span class="outline">I've solved</span></h2>
+        </div>
+        <div class="projects__track">
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="1"></div><span class="card__no mono">P.01 · Aerospace</span><h3 class="display">Weapon-bay door</h3><p>FE model, mapped manoeuvre loads, SOL 101 &amp; 105. Proposed added stiffeners.</p><span class="card__tag mono">NASTRAN · Buckling</span></a>
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="2"></div><span class="card__no mono">P.02 · Aerospace</span><h3 class="display">Bulkheads &amp; frames</h3><p>Fine-mesh models and SOL 200 optimisation. 15% lighter while meeting MIL-STD.</p><span class="card__tag mono">SOL 200 · Optimisation</span></a>
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="3"></div><span class="card__no mono">P.03 · Aerospace</span><h3 class="display">Landing-gear doors</h3><p>Open and closed states in SOL 101, 105 and 106. Thickness and stiffener optimisation.</p><span class="card__tag mono">Non-linear · Stability</span></a>
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="4"></div><span class="card__no mono">P.04 · Motorsport</span><h3 class="display">CFRP monocoque</h3><p>Free-size → size → shuffle in OptiStruct. −14% mass, +15% torsional stiffness.</p><span class="card__tag mono">Composites · OptiStruct</span></a>
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="5"></div><span class="card__no mono">P.05 · Motorsport</span><h3 class="display">H₂ tank cage</h3><p>1D beam model of the support cage. Linear and non-linear statics. Lighter clamps.</p><span class="card__tag mono">1D FE · Non-linear</span></a>
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="6"></div><span class="card__no mono">P.06 · Multiphysics</span><h3 class="display">E-motor coupling</h3><p>Maxwell electromagnetics for torque, efficiency and losses, coupled to thermal and structural.</p><span class="card__tag mono">Maxwell · Thermal</span></a>
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="7"></div><span class="card__no mono">P.07 · Fracture</span><h3 class="display">SMART crack growth</h3><p>Crack propagation in Ansys, with APDL scripts that pull crack-front coordinates every step.</p><span class="card__tag mono">Ansys · APDL</span></a>
+          <a class="card" data-cursor="Drag" tabindex="0"><div class="card__mesh" data-seed="8"></div><span class="card__no mono">P.08 · Research</span><h3 class="display">Molar under bite</h3><p>CT scan → FE mesh → seven bite load cases. Where does enamel crack first?</p><span class="card__tag mono">Biomechanics · Thesis</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Toolkit ===== -->
+    <section class="toolkit">
+      <div class="section-label mono"><span>(05)</span><span>Toolkit</span></div>
+      <div class="toolkit__grid">
+        <div class="tool-col"><h4 class="mono">Pre / Solve / Post</h4><ul class="display"><li>HyperMesh</li><li>MSC NASTRAN</li><li>Abaqus</li><li>Ansys Mechanical</li><li>OptiStruct</li><li>HyperView · Patran</li></ul></div>
+        <div class="tool-col"><h4 class="mono">Analysis</h4><ul class="display"><li>Linear &amp; non-linear static</li><li>Buckling</li><li>Modal &amp; transient</li><li>Fracture mechanics</li><li>Bolt &amp; bearing loads</li><li>Hand calcs</li></ul></div>
+        <div class="tool-col"><h4 class="mono">Beyond structures</h4><ul class="display"><li>Ansys Maxwell</li><li>Ansys Fluent</li><li>MSC Adams</li><li>Composites</li><li>Python · TCL · APDL</li><li>SolidWorks CAD</li></ul></div>
+      </div>
+    </section>
+
+    <!-- ===== Contact ===== -->
+    <section class="contact" id="contact" data-shape="0">
+      <div class="section-label mono"><span>(06)</span><span>Contact</span></div>
+      <h2 class="contact__title display">
+        <span class="line"><span class="split">Let's find</span></span>
+        <span class="line"><span class="split">the weak spot</span></span>
+      </h2>
+      <div class="contact__actions">
+        <a class="btn magnetic" href="mailto:prajwal.su05@gmail.com" data-cursor="Write"><span>prajwal.su05@gmail.com</span></a>
+        <a class="btn btn--ghost magnetic" href="https://www.linkedin.com/in/prajwalsu05" target="_blank" rel="noopener" data-cursor="Open"><span>LinkedIn ↗</span></a>
+      </div>
+      <footer class="footer mono">
+        <span>© 2026 Prajwal Uppar</span>
+        <span>All 3D generated in code: no models were harmed</span>
+        <a href="#top" data-cursor="Up">Back to top ↑</a>
+      </footer>
+    </section>
+  </main>
+
+  <script src="vendor/gsap.min.js"></script>
+  <script src="vendor/ScrollTrigger.min.js"></script>
+  <script src="vendor/SplitText.min.js"></script>
+  <script src="vendor/lenis.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
