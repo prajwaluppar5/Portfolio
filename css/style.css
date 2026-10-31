@@ -122,9 +122,6 @@ section { position: relative; padding: 0 var(--gutter); }
 .chapter__list li { padding-left: 1.4rem; position: relative; color: #c9c9c1; }
 .chapter__list li::before { content: ''; position: absolute; left: 0; top: .65em; width: .7rem; height: 1px; background: var(--accent); }
 .chapter__list b { color: var(--fg); font-weight: 500; }
-.obj-label { position: fixed; left: 0; top: 0; z-index: 3; pointer-events: none; color: var(--fg); padding: .35em .8em; border: 1px solid var(--line); border-radius: 99px; background: rgba(11, 12, 11, .6); backdrop-filter: blur(6px); white-space: nowrap; opacity: 0; transition: opacity .5s; }
-.obj-label.is-on { opacity: 1; }
-.obj-label::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: .6em; vertical-align: middle; }
 .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1.6rem; }
 .chips span { border: 1px solid var(--line); border-radius: 99px; padding: .35em .8em; color: var(--muted); }
 

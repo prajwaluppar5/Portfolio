@@ -173,11 +173,11 @@ function layouts() {
   };
 }
 
-// keyframes: el = section, a/b = { shape, layout key, scale factor }, labels for pairs
+// keyframes: el = section, a/b = [shape, layout key, scale factor]
 const KEYS = [
   { el: '.hero', a: ['brain', 'hero'], b: ['brain', 'hero'], hud: 'LC0 · Cortex', rings: 0.22, holdTop: 0, holdEnd: 0.12 },
-  { el: '.chapter[data-key="ch1"]', a: ['amca', 'pairA', 0.82], b: ['tejas', 'pairB', 0.82], hud: 'LC1 · Aerospace', labels: ['AMCA', 'LCA Tejas'] },
-  { el: '.chapter[data-key="ch2"]', a: ['car', 'pairA'], b: ['mono', 'pairB'], hud: 'LC2 · Motorsport', labels: ['KA-RaceIng FS car', 'CFRP monocoque'] },
+  { el: '.chapter[data-key="ch1"]', a: ['amca', 'pairA', 0.82], b: ['tejas', 'pairB', 0.82], hud: 'LC1 · Aerospace' },
+  { el: '.chapter[data-key="ch2"]', a: ['car', 'pairA'], b: ['mono', 'pairB'], hud: 'LC2 · Motorsport' },
   { el: '.chapter[data-key="ch3"]', a: ['gear', 'right'], b: ['gear', 'right'], hud: 'LC3 · Research', rings: 0.12 },
   { el: '.chapter[data-key="ch4"]', a: ['molar', 'left'], b: ['molar', 'left'], hud: 'LC4 · Biomechanics', rings: 0.12 },
   { el: '.contact', a: ['brain', 'contact'], b: ['brain', 'contact'], hud: 'LC5 · Your problem', rings: 0.22, holdEnd: 99 },
@@ -212,7 +212,6 @@ function measure() {
   });
 }
 const ease = (t) => t * t * (3 - 2 * t);
-const labels = { a: $('#labelA'), b: $('#labelB') };
 
 function pose(k, which, L) {
   const [shape, lay, f = 1] = k[which];
@@ -261,16 +260,6 @@ function update3D(dt = 1 / 60) {
   gl.view.ringOpacity = (kf.rings || 0) * (1 - t) + (kt.rings || 0) * t;
   const k = t < 0.5 ? kf : kt;
   hudCase.textContent = k.hud;
-  // name tags only once a pair has fully formed
-  const settledKey = Math.abs(Ps - Math.round(Ps)) < 0.02 ? KEYS[Math.round(Ps)] : null;
-  const show = settledKey && settledKey.labels;
-  for (const [n, el, body] of [[0, labels.a, gl.A], [1, labels.b, gl.B]]) {
-    el.classList.toggle('is-on', !!show);
-    if (!show) continue;
-    if (el.textContent !== settledKey.labels[n]) el.textContent = settledKey.labels[n];
-    const p = gl.screenPos(body);
-    el.style.transform = `translate(${p.x}px, ${p.y + (isMobile() ? 0.085 : 0.26) * innerHeight}px) translateX(-50%)`;
-  }
 }
 
 if (gl) {
