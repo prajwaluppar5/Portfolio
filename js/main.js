@@ -21,6 +21,13 @@ if (!reduceMotion) {
 // where a link should land: experience chapters land where their card is pinned in
 // the centre (and the models have formed); "Experience" itself lands on the first card
 function linkTarget(el) {
+  if (el.id === 'about') {
+    // About: centre the whole block (label → stats) in the window
+    const top = $('.about .section-label').getBoundingClientRect().top + scrollY;
+    const bottom = $('.stats').getBoundingClientRect().bottom + scrollY;
+    const h = bottom - top;
+    return top - (h < innerHeight - 40 ? (innerHeight - h) / 2 : 0.08 * innerHeight);
+  }
   const chapter = el.matches('.chapter') ? el : el.id === 'work' ? el.querySelector('.chapter') : null;
   if (!chapter) return el;
   const card = chapter.querySelector('.chapter__inner');
@@ -194,7 +201,8 @@ $$('.magnetic').forEach((btn) => {
 /* ---------------- About: word-by-word reveal + counters ---------------- */
 gsap.to(aboutSplit.words, {
   opacity: 1, stagger: 0.1, ease: 'none',
-  scrollTrigger: { trigger: about, start: 'top 80%', end: 'bottom 45%', scrub: true },
+  // fully lit by the time the About block is centred on screen
+  scrollTrigger: { trigger: about, start: 'top 85%', end: 'bottom 62%', scrub: true },
 });
 $$('[data-count]').forEach((el) => {
   const o = { v: 0 };
@@ -341,6 +349,8 @@ if (gl) {
       .from(inner.querySelectorAll('li, .chips span'), { opacity: 0, x: -16, stagger: 0.05, duration: 0.6 }, 0.4);
   });
 
+  // slide the HUD out of the way while the stats row passes behind it
+  ScrollTrigger.create({ trigger: '.stats', start: 'top bottom', end: 'bottom bottom-=140', toggleClass: { targets: '.hud', className: 'is-tucked' } });
   gsap.to('.hud', { opacity: 1, scrollTrigger: { trigger: '.about', start: 'top 80%', end: 'top 40%', scrub: true } });
   ScrollTrigger.create({ start: 0, end: 'max', onUpdate: (s) => (hudProg.textContent = String(Math.round(s.progress * 100)).padStart(3, '0') + '%') });
 }
