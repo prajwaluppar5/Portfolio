@@ -5,7 +5,7 @@ landonorris.com (OFF+BRAND: Webflow, Lenis smooth scroll, GSAP, Rive), but the d
 
 ## Live site
 
-<https://prajwaluppar5.github.io/portfolio/>, served by GitHub Pages from the `main` branch root.
+<https://prajwaluppar5.github.io/Portfolio/>, served by GitHub Pages from the `main` branch root.
 
 ## Run it locally
 
