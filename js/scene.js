@@ -238,16 +238,16 @@ export function createScene(canvas, { lowPower = false } = {}) {
   rings.add(tickLines);
   A.rig.add(rings);
 
-  // background stars: a soft core with four thin rays (a sparkle), each with its own
-  // size, warmth and twinkle rhythm; a few larger "bright" stars among the faint ones
+  // background stars: little five-pointed stars with a soft glow, each with its own
+  // size, tilt, slow spin and twinkle rhythm; a few larger warm "bright" ones
   const dustGeo = new THREE.BufferGeometry();
   const DUST = 900;
   const dp = new Float32Array(DUST * 3);
-  const ds = new Float32Array(DUST * 3); // size px, twinkle phase, twinkle speed
+  const ds = new Float32Array(DUST * 3); // size px, phase, speed
   for (let i = 0; i < DUST; i++) {
     dp.set([(Math.random() - 0.5) * 22, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 10 - 2], i * 3);
-    const bright = Math.random() < 0.07;
-    ds.set([bright ? 14 + Math.random() * 12 : 4 + Math.random() * 5, Math.random() * 6.283, 0.6 + Math.random() * 1.8], i * 3);
+    const bright = Math.random() < 0.08;
+    ds.set([bright ? 18 + Math.random() * 12 : 7 + Math.random() * 6, Math.random() * 6.283, 0.6 + Math.random() * 1.8], i * 3);
   }
   dustGeo.setAttribute('position', new THREE.BufferAttribute(dp, 3));
   dustGeo.setAttribute('aStar', new THREE.BufferAttribute(ds, 3));
@@ -256,31 +256,44 @@ export function createScene(canvas, { lowPower = false } = {}) {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: /* glsl */ `
       attribute vec3 aStar; uniform float uTime, uPR;
-      varying float vTw; varying float vBig;
+      varying float vTw; varying float vBig; varying float vRot;
       void main(){
         vec4 mv = modelViewMatrix * vec4(position, 1.);
         gl_Position = projectionMatrix * mv;
-        // twinkle: slow breathing plus an occasional sharper glint
         float tw = .55 + .45 * sin(uTime * aStar.z + aStar.y);
         tw *= .8 + .2 * sin(uTime * aStar.z * 2.7 + aStar.y * 3.);
         vTw = tw;
-        vBig = step(12., aStar.x);
-        gl_PointSize = aStar.x * uPR * (0.75 + 0.35 * tw) * clamp(7. / -mv.z, .6, 1.4);
+        vBig = step(16., aStar.x);
+        vRot = aStar.y * 7. + uTime * .25 * (aStar.z - 1.4); // own tilt, slow spin either way
+        gl_PointSize = aStar.x * uPR * (0.8 + 0.3 * tw) * clamp(7. / -mv.z, .6, 1.4);
       }`,
     fragmentShader: /* glsl */ `
-      varying float vTw; varying float vBig;
+      varying float vTw; varying float vBig; varying float vRot;
+      // signed distance to a five-pointed star (outer radius r, inner ratio rf), after Inigo Quilez
+      float sdStar5(vec2 p, float r, float rf){
+        const vec2 k1 = vec2(0.809016994375, -0.587785252292);
+        const vec2 k2 = vec2(-k1.x, k1.y);
+        p.x = abs(p.x);
+        p -= 2.0 * max(dot(k1, p), 0.0) * k1;
+        p -= 2.0 * max(dot(k2, p), 0.0) * k2;
+        p.x = abs(p.x);
+        p.y -= r;
+        vec2 ba = rf * vec2(-k1.y, k1.x) - vec2(0, 1);
+        float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
+        return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
+      }
       void main(){
         vec2 uv = gl_PointCoord - .5;
-        float r = length(uv);
-        float core = exp(-r * r * 160.);
-        float glow = exp(-r * 9.) * .35;
-        // four rays (thin cross), longer on the bright stars
-        float len = mix(8., 3.5, vBig);
-        float rays = exp(-abs(uv.y) * 90.) * exp(-abs(uv.x) * len) + exp(-abs(uv.x) * 90.) * exp(-abs(uv.y) * len);
-        float edge = smoothstep(.5, .32, max(abs(uv.x), abs(uv.y))); // no square edge at the sprite border
-        float a = (core * 1.4 + glow * smoothstep(.5, .2, r) + rays * mix(.35, 1.1, vBig)) * vTw * .9 * edge;
+        uv.y = -uv.y;
+        float c = cos(vRot), s = sin(vRot);
+        uv = mat2(c, -s, s, c) * uv;
+        float d = sdStar5(uv, .36, .45);
+        float aa = 1.6 / 30.;                              // ~1-2 px soft edge
+        float body = 1. - smoothstep(-aa, aa, d);
+        float glow = exp(-max(d, 0.) * 14.) * .35 * smoothstep(.5, .3, length(uv));
+        float a = (body + glow) * vTw * .85;
         if (a < .01) discard;
-        vec3 col = mix(vec3(.78, .82, .9), vec3(1., .95, .85), vBig);
+        vec3 col = mix(vec3(.8, .84, .92), vec3(1., .93, .78), vBig);
         gl_FragColor = vec4(col * a, a);
       }`,
   }));
