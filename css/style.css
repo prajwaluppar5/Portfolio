@@ -45,7 +45,9 @@ section { position: relative; padding: 0 var(--gutter); }
 .loader__top { display: flex; justify-content: space-between; color: var(--muted); }
 .loader__log { align-self: end; color: var(--muted); line-height: 1.9; }
 /* big outlined HELLO that fills from the bottom as the solver runs */
-.loader__hello { position: relative; align-self: center; justify-self: center; text-align: center; font-size: clamp(5.5rem, 35vw, 15rem); line-height: .85; --p: 0%; }
+/* sits in its own grid row (between the top line and the log), centred there, so it
+   can't overlap anything; capped by height for short screens */
+.loader__hello { position: relative; align-self: center; justify-self: center; text-align: center; font-size: min(35vw, 20vh, 15rem); min-height: 0; line-height: .85; --p: 0%; }
 .loader__hello-line { color: transparent; -webkit-text-stroke: 1.5px rgba(236, 235, 228, .35); }
 .loader__hello-fill { position: absolute; inset: 0; color: var(--fg); clip-path: inset(calc(100% - var(--p)) 0 0 0); }
 .loader__log p:last-child { color: var(--fg); }
@@ -202,7 +204,6 @@ section { position: relative; padding: 0 var(--gutter); }
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .pill { display: none; }
-  .loader__hello { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); }
   .stats { grid-template-columns: repeat(2, 1fr); }
   .toolkit__grid { grid-template-columns: 1fr; }
   .chapter, .chapter--right { justify-content: center; align-items: flex-end; min-height: 0; padding-top: 55vh; }
