@@ -350,7 +350,14 @@ if (gl) {
   });
 
   // slide the HUD out of the way while the stats row passes behind it
-  ScrollTrigger.create({ trigger: '.stats', start: 'top bottom', end: 'bottom bottom-=140', toggleClass: { targets: '.hud', className: 'is-tucked' } });
+  // (also while the footer is on screen)
+  // (measured live: positions shift once the projects section is pinned)
+  const hudEl = $('.hud'), statsEl = $('.stats'), footEl = $('.footer');
+  const tuck = () => {
+    const vh = innerHeight, sr = statsEl.getBoundingClientRect(), fr = footEl.getBoundingClientRect();
+    hudEl.classList.toggle('is-tucked', (sr.top < vh && sr.bottom > vh - 140) || fr.top < vh);
+  };
+  ScrollTrigger.create({ start: 0, end: 'max', onUpdate: tuck, onRefresh: tuck });
   gsap.to('.hud', { opacity: 1, scrollTrigger: { trigger: '.about', start: 'top 80%', end: 'top 40%', scrub: true } });
   ScrollTrigger.create({ start: 0, end: 'max', onUpdate: (s) => (hudProg.textContent = String(Math.round(s.progress * 100)).padStart(3, '0') + '%') });
 }

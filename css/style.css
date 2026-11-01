@@ -187,7 +187,7 @@ section { position: relative; padding: 0 var(--gutter); }
 
 /* ---------- Contact ---------- */
 .contact { min-height: 100svh; display: flex; flex-direction: column; padding-top: 18vh; }
-.contact__title { font-size: clamp(3rem, 13vw, 15rem); }
+.contact__title { font-size: clamp(3rem, 10.5vw, 13rem); }
 .contact__actions { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 3rem; }
 .btn { display: inline-flex; align-items: center; justify-content: center; padding: 1.3rem 2.2rem; border-radius: 99px; background: var(--accent); color: var(--bg); font-weight: 500; font-size: clamp(1rem, 1.5vw, 1.35rem); will-change: transform; }
 .btn span { display: inline-block; pointer-events: none; }
