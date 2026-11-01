@@ -68,10 +68,11 @@ const aboutSplit = new SplitText(about, { type: 'words', wordsClass: 'w' });
 
 /* ---------------- Loader ---------------- */
 const log = $('#loaderLog');
-const steps = ['Meshing 32,000 nodes…', 'Applying boundary conditions…', 'Solving K·u = F…', 'Post-processing σ_v…', 'Converged. Rendering.'];
+const steps = ['Meshing 46,000 nodes…', 'Applying boundary conditions…', 'Solving K·u = F…', 'Post-processing σ_v…', 'Converged. Rendering.'];
 const loader = { p: 0 };
 const count = $('#loaderCount');
 const bar = $('#loaderBar');
+const hello = $('#loaderHello');
 let stepShown = 0;
 gsap.to(loader, {
   p: 100,
@@ -81,6 +82,7 @@ gsap.to(loader, {
     const v = Math.round(loader.p);
     count.textContent = String(v).padStart(3, '0');
     bar.style.width = v + '%';
+    hello.style.setProperty('--p', v + '%');
     const want = Math.min(steps.length, Math.floor(v / 20) + 1);
     while (stepShown < want) {
       const p = document.createElement('p');

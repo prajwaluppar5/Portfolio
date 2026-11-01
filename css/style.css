@@ -41,9 +41,13 @@ section { position: relative; padding: 0 var(--gutter); }
 .section-label span:first-child { color: var(--accent); }
 
 /* ---------- Loader ---------- */
-.loader { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: grid; grid-template-rows: auto 1fr auto auto auto; padding: var(--gutter); gap: 1rem; }
+.loader { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: grid; grid-template-rows: auto 1fr auto auto auto auto; padding: var(--gutter); gap: 1rem; }
 .loader__top { display: flex; justify-content: space-between; color: var(--muted); }
 .loader__log { align-self: end; color: var(--muted); line-height: 1.9; }
+/* big outlined HELLO that fills from the bottom as the solver runs */
+.loader__hello { position: relative; align-self: center; justify-self: start; font-size: clamp(5.5rem, 35vw, 15rem); line-height: .85; --p: 0%; }
+.loader__hello-line { color: transparent; -webkit-text-stroke: 1.5px rgba(236, 235, 228, .35); }
+.loader__hello-fill { position: absolute; inset: 0; color: var(--fg); clip-path: inset(calc(100% - var(--p)) 0 0 0); }
 .loader__log p:last-child { color: var(--fg); }
 .loader__count { font-size: clamp(6rem, 24vw, 22rem); color: var(--fg); }
 .loader__bar { height: 6px; background: var(--line); overflow: hidden; }
