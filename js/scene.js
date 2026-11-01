@@ -238,12 +238,52 @@ export function createScene(canvas, { lowPower = false } = {}) {
   rings.add(tickLines);
   A.rig.add(rings);
 
+  // background stars: a soft core with four thin rays (a sparkle), each with its own
+  // size, warmth and twinkle rhythm; a few larger "bright" stars among the faint ones
   const dustGeo = new THREE.BufferGeometry();
   const DUST = 900;
   const dp = new Float32Array(DUST * 3);
-  for (let i = 0; i < DUST; i++) dp.set([(Math.random() - 0.5) * 22, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 10 - 2], i * 3);
+  const ds = new Float32Array(DUST * 3); // size px, twinkle phase, twinkle speed
+  for (let i = 0; i < DUST; i++) {
+    dp.set([(Math.random() - 0.5) * 22, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 10 - 2], i * 3);
+    const bright = Math.random() < 0.07;
+    ds.set([bright ? 14 + Math.random() * 12 : 4 + Math.random() * 5, Math.random() * 6.283, 0.6 + Math.random() * 1.8], i * 3);
+  }
   dustGeo.setAttribute('position', new THREE.BufferAttribute(dp, 3));
-  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0x9aa094, size: 0.018, transparent: true, opacity: 0.5, depthWrite: false }));
+  dustGeo.setAttribute('aStar', new THREE.BufferAttribute(ds, 3));
+  const dust = new THREE.Points(dustGeo, new THREE.ShaderMaterial({
+    uniforms: { uTime: time, uPR: { value: pr } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */ `
+      attribute vec3 aStar; uniform float uTime, uPR;
+      varying float vTw; varying float vBig;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.);
+        gl_Position = projectionMatrix * mv;
+        // twinkle: slow breathing plus an occasional sharper glint
+        float tw = .55 + .45 * sin(uTime * aStar.z + aStar.y);
+        tw *= .8 + .2 * sin(uTime * aStar.z * 2.7 + aStar.y * 3.);
+        vTw = tw;
+        vBig = step(12., aStar.x);
+        gl_PointSize = aStar.x * uPR * (0.75 + 0.35 * tw) * clamp(7. / -mv.z, .6, 1.4);
+      }`,
+    fragmentShader: /* glsl */ `
+      varying float vTw; varying float vBig;
+      void main(){
+        vec2 uv = gl_PointCoord - .5;
+        float r = length(uv);
+        float core = exp(-r * r * 160.);
+        float glow = exp(-r * 9.) * .35;
+        // four rays (thin cross), longer on the bright stars
+        float len = mix(8., 3.5, vBig);
+        float rays = exp(-abs(uv.y) * 90.) * exp(-abs(uv.x) * len) + exp(-abs(uv.x) * 90.) * exp(-abs(uv.y) * len);
+        float edge = smoothstep(.5, .32, max(abs(uv.x), abs(uv.y))); // no square edge at the sprite border
+        float a = (core * 1.4 + glow * smoothstep(.5, .2, r) + rays * mix(.35, 1.1, vBig)) * vTw * .9 * edge;
+        if (a < .01) discard;
+        vec3 col = mix(vec3(.78, .82, .9), vec3(1., .95, .85), vBig);
+        gl_FragColor = vec4(col * a, a);
+      }`,
+  }));
   scene.add(dust);
 
   // ---- post ----
